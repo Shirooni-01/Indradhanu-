@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Tactical GIS Map | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="map-wrapper">
+    <div id="gis-map"></div>
+
+    <!-- Floating Map Controls -->
+    <div class="map-floating-controls">
+        <span class="fringe-badge"><i class="fa-solid fa-mountain-sun"></i> Tadoba-Andhari Buffer Zone</span>
+        <button class="map-ctrl-btn active" id="btn-layer-sat">Satellite</button>
+        <button class="map-ctrl-btn" id="btn-layer-osm">Topo Map</button>
+        <button class="map-ctrl-btn" id="btn-recenter"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
+    </div>
+
+    <!-- Map Legend -->
+    <div class="map-legend">
+        <div class="legend-title">Perimeter Legend</div>
+        <div class="legend-row">
+            <span class="legend-color legend-forest"></span> Forest Boundary
+        </div>
+        <div class="legend-row">
+            <span class="legend-color legend-village"></span> Village Buffer Zone (650m)
+        </div>
+        <div class="legend-row">
+            <span class="legend-color legend-tower"></span> Pi 4 Camera Tower
+        </div>
+        <div class="legend-row">
+            <span class="legend-color legend-predator"></span> Predator Sighting
+        </div>
+    </div>
+
+    <!-- Real-Time Threat Alert Banner -->
+    <div class="threat-alert-banner hidden" id="threat-banner">
+        <div class="threat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="threat-details">
+            <h4 id="threat-title">CRITICAL ALERT: TIGER DETECTED</h4>
+            <p id="threat-desc">Location: 21.1441° N, 79.0865° E | Distance: ~280m from Rampur village | SMS dispatched to 42 villagers & Forest Ranger.</p>
+        </div>
+        <button class="threat-dismiss" id="btn-dismiss-threat"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+</div>
+
+<!-- MODAL: SNAPSHOT VIEWER -->
+<div class="modal-backdrop hidden" id="modal-snapshot">
+    <div class="modal-card modal-snapshot-card">
+        <div class="modal-header">
+            <h3 id="snapshot-modal-title"><i class="fa-solid fa-camera"></i> High-Resolution Sighting Snapshot</h3>
+            <button class="modal-close-btn" id="btn-close-snapshot"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body snapshot-modal-body">
+            <div class="snapshot-large-wrap">
+                <img id="snapshot-modal-img" src="" alt="Wildlife Snapshot">
+            </div>
+            <div class="snapshot-meta-details" id="snapshot-modal-meta">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/map.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initTacticalMap) window.initTacticalMap();
+    });
+</script>
+{% endblock %}

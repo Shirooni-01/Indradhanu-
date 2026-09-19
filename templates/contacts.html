@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Villager & Authority Directory | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <h2><i class="fa-solid fa-address-book"></i> Villager & Forest Authority Directory</h2>
+            <p class="page-subtitle">Registered community members, Sarpanches, and Forest Rangers who receive instant SMS early warnings.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" id="btn-open-add-modal">
+                <i class="fa-solid fa-user-plus"></i> Add New Contact
+            </button>
+        </div>
+    </div>
+
+    <!-- STATS SUMMARY CARDS -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-contacts">5</span>
+                <span class="deck-label">Registered Contacts</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-comment-sms"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success">126</span>
+                <span class="deck-label">SMS Alerts Dispatched</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info">3</span>
+                <span class="deck-label">Protected Village Sectors</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="contacts-queue-count">0</span>
+                <span class="deck-label">Queued Offline Alerts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL TABLE CARD -->
+    <div class="full-table-card">
+        <div class="table-card-header">
+            <h4><i class="fa-solid fa-list-check"></i> Registered SMS Recipients</h4>
+            <div class="table-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="contact-search-input" placeholder="Search by name, village, or phone...">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="contacts-table">
+                <thead>
+                    <tr>
+                        <th>Recipient Name</th>
+                        <th>Mobile Number</th>
+                        <th>Village Sector</th>
+                        <th>Role / Designation</th>
+                        <th>Alert Channel</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="contacts-page-table-body">
+                    <!-- Populated dynamically via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD CONTACT -->
+<div class="modal-backdrop hidden" id="modal-add-contact">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus"></i> Register SMS Alert Contact</h3>
+            <button class="modal-close-btn" id="btn-close-add-contact"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form class="contact-form" id="form-add-contact">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="contact-name" placeholder="e.g. Ramesh Patil" required>
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number (+91...)</label>
+                    <input type="tel" id="contact-phone" placeholder="+91 98230 XXXXX" required>
+                </div>
+                <div class="form-group">
+                    <label>Village / Sector</label>
+                    <select id="contact-village">
+                        <option value="Rampur">Rampur Village (Sector 1)</option>
+                        <option value="Shivpuri">Shivpuri Village (Sector 2)</option>
+                        <option value="Borpada">Borpada Fringe (Sector 3)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="contact-role">
+                        <option value="villager">Villager / Farmer</option>
+                        <option value="sarpanch">Village Sarpanch</option>
+                        <option value="forest_ranger">Forest Ranger / Officer</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center;">
+                    <i class="fa-solid fa-check"></i> Save & Register Contact
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.renderContactsFullTable) window.renderContactsFullTable();
+    });
+</script>
+{% endblock %}

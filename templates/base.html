@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Project Indradhanu | Wildlife Early Warning System{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&family=Saira+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        
+        <!-- COMPACT AUTO-HIDE NAVIGATION SIDEBAR (EXPANDS ON HOVER TO SHOW COMPLETE NAMES) -->
+        <aside class="sidebar-dock" id="sidebar-dock">
+            <!-- Brand Logo -->
+            <div class="dock-header">
+                <div class="dock-logo">
+                    <i class="fa-solid fa-shield-cat"></i>
+                </div>
+                <div class="dock-title-text">
+                    <h2>INDRADHANU</h2>
+                    <span class="dock-sub">PROJECT C</span>
+                </div>
+            </div>
+
+            <!-- Vertical Navigation List (Icons only -> Complete Name on Hover) -->
+            <nav class="dock-nav">
+                <a href="/" class="dock-nav-item {% if active_page == 'map' %}active{% endif %}">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span class="nav-name">Tactical GIS Map</span>
+                </a>
+
+                <a href="/history" class="dock-nav-item {% if active_page == 'history' %}active{% endif %}">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span class="nav-name">Sightings History</span>
+                    <span class="nav-counter-badge" id="dock-badge-history">4</span>
+                </a>
+
+                <a href="/contacts" class="dock-nav-item {% if active_page == 'contacts' %}active{% endif %}">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span class="nav-name">Villager Directory</span>
+                </a>
+
+                <a href="/nodes" class="dock-nav-item {% if active_page == 'nodes' %}active{% endif %}">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                    <span class="nav-name">Camera Nodes</span>
+                    <span class="nav-counter-badge" style="background:var(--accent-cyan); color:#000; font-weight:700;" id="dock-badge-nodes">3</span>
+                </a>
+
+                <a href="/system" class="dock-nav-item {% if active_page == 'system' %}active{% endif %}">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span class="nav-name">System Health</span>
+                </a>
+            </nav>
+
+            <!-- Dock Footer / Status Dot -->
+            <div class="dock-footer">
+                <div class="dock-status-indicator">
+                    <span class="pulse-dot"></span>
+                    <span class="dock-status-label" id="dock-net-label">4G Online</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN VIEWPORT: TOP TELEMETRY BAR & PAGE CONTENT -->
+        <div class="main-viewport">
+            
+            <!-- TOP TELEMETRY & STATUS BAR -->
+            <header class="top-header">
+                <div class="telemetry-bar">
+                    <!-- RPi Node Status -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-microchip"></i> RPi 4 NODE</span>
+                        <span class="item-value status-online"><span class="pulse-dot"></span> NODE-01 ACTIVE</span>
+                    </div>
+
+                    <!-- PIR Motion Sensor -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-person-running"></i> PIR SENSOR</span>
+                        <span class="item-value status-active" id="pir-status-text">
+                            <i class="fa-solid fa-shield"></i> STANDBY (PIR WAKE)
+                        </span>
+                    </div>
+
+                    <!-- Battery & Solar -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-solar-panel"></i> BATTERY</span>
+                        <span class="item-value text-accent"><i class="fa-solid fa-bolt"></i> 88% SOLAR</span>
+                    </div>
+
+                    <!-- Network / Offline Fallback Status -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-tower-cell"></i> NETWORK</span>
+                        <span class="item-value status-online" id="network-status-text">
+                            <i class="fa-solid fa-signal"></i> 4G ONLINE
+                        </span>
+                    </div>
+
+                    <!-- Offline Fallback Queue -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-database"></i> SQLITE QUEUE</span>
+                        <span class="item-value status-idle" id="queue-status-text">0 PENDING</span>
+                    </div>
+
+                    <!-- System Clock -->
+                    <div class="telemetry-item clock-item">
+                        <span class="item-label">SYSTEM TIME (IST)</span>
+                        <span class="item-value clock-time" id="system-clock">--:--:--</span>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="header-actions">
+                    <button class="btn btn-outline" id="btn-toggle-offline" title="Simulate Internet/GSM outage to test SQLite fallback queue">
+                        <i class="fa-solid fa-plug-circle-xmark"></i> Simulate Offline
+                    </button>
+                    <button class="btn btn-primary" id="btn-sim-detection" title="Simulate wild animal crossing perimeter">
+                        <i class="fa-solid fa-paw"></i> Test Detection
+                    </button>
+                    <button class="btn btn-icon" id="btn-sound-toggle" title="Mute/Unmute Audio Alert Siren">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- DYNAMIC PAGE CONTENT INJECTED HERE -->
+            <main class="page-content">
+                {% block content %}{% endblock %}
+            </main>
+
+        </div>
+
+    </div>
+
+    <!-- AUDIO SIREN FOR ALERTS -->
+    <audio id="siren-audio" preload="auto">
+        <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    </audio>
+
+    <!-- Leaflet JS for Map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Custom Scripts -->
+    <script src="/static/js/app.js"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

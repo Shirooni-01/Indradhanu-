@@ -1,0 +1,410 @@
+{% extends "base.html" %}
+
+{% block title %}System Health & Hardware Diagnostics | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <h2><i class="fa-solid fa-microchip"></i> System Health & Edge Node Diagnostics</h2>
+            <p class="page-subtitle">Hardware telemetry, motion sleep/wake states, power diagnostics, and SQLite offline fallback sync engine.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-outline" id="btn-manual-sync">
+                <i class="fa-solid fa-arrows-rotate"></i> Flush SQLite Queue
+            </button>
+        </div>
+    </div>
+
+    <!-- SYSTEM TELEMETRY CARDS -->
+    <div class="system-diag-grid">
+        
+        <!-- Hardware Node Status -->
+        <div class="diag-card">
+            <div class="diag-card-top">
+                <span class="diag-card-title"><i class="fa-solid fa-server"></i> Edge Hardware Node</span>
+                <span class="badge-online">ONLINE</span>
+            </div>
+            <div class="diag-metric-row">
+                <div class="diag-metric">
+                    <span class="metric-val">Raspberry Pi 4</span>
+                    <span class="metric-sub">Quad Core ARM Cortex-A72 @ 1.5GHz</span>
+                </div>
+            </div>
+            <div class="diag-progress-wrap">
+                <div class="diag-prog-label">
+                    <span>CPU Load</span>
+                    <span id="sys-cpu-val">14% (Idle Standby)</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill" style="width: 14%;"></div></div>
+            </div>
+            <div class="diag-progress-wrap">
+                <div class="diag-prog-label">
+                    <span>RAM Usage (Model pre-warmed)</span>
+                    <span>1.2 GB / 4.0 GB</span>
+                </div>
+                <div class="progress-bar"><div class="progress-fill fill-cyan" style="width: 30%;"></div></div>
+            </div>
+        </div>
+
+        <!-- PIR Sensor & Sleep-Wake Status -->
+        <div class="diag-card">
+            <div class="diag-card-top">
+                <span class="diag-card-title"><i class="fa-solid fa-person-running"></i> Motion Wake-Up Trigger</span>
+                <span class="badge-active" id="diag-pir-badge">WAKE READY</span>
+            </div>
+            <div class="diag-metric-row">
+                <div class="diag-metric">
+                    <span class="metric-val" id="diag-pir-text">Standby (Low Power)</span>
+                    <span class="metric-sub">GPIO Pin 18 (Hardware Interrupt Edge)</span>
+                </div>
+            </div>
+            <div class="diag-stat-list">
+                <div class="diag-stat-item">
+                    <span>Wake Latency:</span>
+                    <strong class="text-success">< 200 ms (Instant)</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Model State:</span>
+                    <strong>Pre-loaded in RAM (Warm)</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Power Mode:</span>
+                    <strong class="text-info">Intelligent Event Standby</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Battery & Solar Harvesting -->
+        <div class="diag-card">
+            <div class="diag-card-top">
+                <span class="diag-card-title"><i class="fa-solid fa-solar-panel"></i> Field Power Subsystem</span>
+                <span class="badge-online">CHARGING</span>
+            </div>
+            <div class="diag-metric-row">
+                <div class="diag-metric">
+                    <span class="metric-val text-accent">88%</span>
+                    <span class="metric-sub">12V 20Ah LiFePO4 Battery Pack</span>
+                </div>
+            </div>
+            <div class="diag-stat-list">
+                <div class="diag-stat-item">
+                    <span>Solar Input:</span>
+                    <strong>18.4V / 1.4A (25W Panel)</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Current Power Draw:</span>
+                    <strong class="text-success">2.8 Watts (Idle)</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Estimated Autonomy:</span>
+                    <strong>72 Hours (Zero Sunlight)</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cellular & Offline SQLite Fallback Engine -->
+        <div class="diag-card">
+            <div class="diag-card-top">
+                <span class="diag-card-title"><i class="fa-solid fa-database"></i> SQLite Offline Queue</span>
+                <span class="badge-idle" id="diag-queue-badge">0 PENDING</span>
+            </div>
+            <div class="diag-metric-row">
+                <div class="diag-metric">
+                    <span class="metric-val" id="diag-queue-val">0 Alerts Queued</span>
+                    <span class="metric-sub">Local Transactional Safety (Zero Alert Loss)</span>
+                </div>
+            </div>
+            <div class="diag-stat-list">
+                <div class="diag-stat-item">
+                    <span>Network Mode:</span>
+                    <strong id="diag-net-text" class="text-success">GSM 4G Active</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Storage Engine:</span>
+                    <strong>SQLite 3 (`indradhanu.db`)</strong>
+                </div>
+                <div class="diag-stat-item">
+                    <span>Auto-Sync Frequency:</span>
+                    <strong>Instant On Link Recovery</strong>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- PLANTED CAMERA NODES FLEET HEALTH -->
+    <div class="full-table-card" style="margin-top: 24px; padding: 20px;">
+        <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--color-hairline); padding-bottom: 16px;">
+            <div>
+                <h4><i class="fa-solid fa-tower-broadcast"></i> Planted Camera Nodes Fleet Health</h4>
+                <p style="font-size: 11px; font-family: var(--font-mono); color: var(--color-muted); letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">
+                    Visual Telemetry HUD: Radial health meters, pan-tilt compass dials, optical array heatmaps & power reserves
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <!-- View Mode Switcher: Cards vs List -->
+                <div class="view-mode-toggle" style="margin-right: 6px;">
+                    <button class="view-toggle-btn active" id="btn-cam-view-cards" title="Graphical HUD Cards View">
+                        <i class="fa-solid fa-table-cells-large"></i> Cards
+                    </button>
+                    <button class="view-toggle-btn" id="btn-cam-view-list" title="Detailed Metrics List View">
+                        <i class="fa-solid fa-list-ul"></i> List
+                    </button>
+                </div>
+                <span class="badge-online" id="fleet-health-summary-badge"><i class="fa-solid fa-circle-check"></i> ALL NODES HEALTHY</span>
+                <button class="btn btn-outline btn-sm" id="btn-scan-fleet-health">
+                    <i class="fa-solid fa-satellite-dish"></i> Scan Fleet Health
+                </button>
+            </div>
+        </div>
+
+        <!-- 1. GRAPHICAL HUD CARDS DECK (DEFAULT VISUAL VIEW) -->
+        <div class="cam-hud-grid" id="system-cameras-hud-grid">
+            {% if nodes %}
+            {% for n in nodes %}
+            {% set batt = n.battery_pct|default(88) %}
+            {% set heading = n.rotator_heading|default(145) %}
+            <div class="cam-hud-card" id="hud-card-{{ n.node_code }}">
+                <!-- Header: Code, Station, and Radial Health Score -->
+                <div class="cam-hud-header">
+                    <div class="cam-hud-title-wrap">
+                        <div class="cam-hud-code">
+                            <i class="fa-solid fa-tower-broadcast" style="color: var(--color-primary); font-size: 14px;"></i>
+                            {{ n.node_code }}
+                            <span class="badge-online" style="padding: 2px 8px; font-size: 9px; margin-left: 4px;">
+                                <i class="fa-solid fa-circle"></i> ACTIVE
+                            </span>
+                        </div>
+                        <div class="cam-hud-name">{{ n.node_name }}</div>
+                        <div class="cam-hud-sector">
+                            <i class="fa-solid fa-location-dot"></i> {{ n.sector }} · 
+                            <span class="text-info">{{ "%.4f"|format(n.latitude) }}°N, {{ "%.4f"|format(n.longitude) }}°E</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Circular Health Arc Meter -->
+                    <div class="hud-radial-wrap" title="Overall Camera Health Rating: 100% Operational">
+                        <svg class="hud-radial-svg" viewBox="0 0 58 58">
+                            <circle class="hud-radial-bg" cx="29" cy="29" r="23"></circle>
+                            <circle class="hud-radial-meter meter-healthy" cx="29" cy="29" r="23" 
+                                    stroke-dasharray="144.5" stroke-dashoffset="0"></circle>
+                        </svg>
+                        <div class="hud-radial-center">
+                            <span class="hud-radial-val">100%</span>
+                            <span class="hud-radial-lbl">HEALTH</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Three Precision Graphical Instruments -->
+                <div class="cam-hud-instruments">
+                    
+                    <!-- Instrument 1: Compass Radar Bearing -->
+                    <div class="hud-instrument-box">
+                        <span class="hud-inst-title"><i class="fa-solid fa-compass"></i> Pan-Tilt Bearing</span>
+                        <div class="compass-dial-wrap">
+                            <svg class="compass-dial-svg" viewBox="0 0 56 56">
+                                <circle cx="28" cy="28" r="26" fill="none" stroke="#262626" stroke-width="1.5"></circle>
+                                <circle cx="28" cy="28" r="16" fill="none" stroke="#1a1a1a" stroke-width="1"></circle>
+                                <text x="28" y="10" fill="#777" font-size="6" font-family="JetBrains Mono" text-anchor="middle">N</text>
+                                <text x="49" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">E</text>
+                                <text x="28" y="51" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">S</text>
+                                <text x="7" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">W</text>
+                                <!-- Rotating Needle & Sweep Wedge -->
+                                <g class="compass-needle-layer" style="transform: rotate({{ heading }}deg); transform-origin: 28px 28px;">
+                                    <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(195, 217, 243, 0.15)"></path>
+                                    <line x1="28" y1="28" x2="28" y2="4" stroke="#c3d9f3" stroke-width="2" stroke-linecap="round"></line>
+                                    <circle cx="28" cy="28" r="2.5" fill="#ffffff"></circle>
+                                </g>
+                            </svg>
+                        </div>
+                        <span class="hud-inst-readout font-mono text-link">{{ heading }}° Azimuth</span>
+                    </div>
+
+                    <!-- Instrument 2: Thermal Optical Heatmap Matrix -->
+                    <div class="hud-instrument-box">
+                        <span class="hud-inst-title"><i class="fa-solid fa-camera"></i> Thermal Array</span>
+                        <div class="thermal-matrix-wrap">
+                            <div class="thermal-matrix-grid" title="Focal Plane Array: 768/768 Active Pixels (100% OK)">
+                                <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                                <div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                                <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div>
+                                <div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                            </div>
+                            <div class="thermal-temp-bar">
+                                <div class="thermal-temp-fill"></div>
+                            </div>
+                        </div>
+                        <span class="hud-inst-readout font-mono text-success">31.4°C · 100% OK</span>
+                    </div>
+
+                    <!-- Instrument 3: Battery & Solar Energy Meter -->
+                    <div class="hud-instrument-box">
+                        <span class="hud-inst-title"><i class="fa-solid fa-bolt"></i> LiFePO4 Energy</span>
+                        <div class="power-gauge-wrap">
+                            <div class="battery-visual-shell" title="Battery Pack: {{ batt }}% Charged (12.6V LiFePO4)">
+                                <div class="batt-segment {% if batt >= 20 %}filled{% endif %}"></div>
+                                <div class="batt-segment {% if batt >= 40 %}filled{% endif %}"></div>
+                                <div class="batt-segment {% if batt >= 60 %}filled{% endif %}"></div>
+                                <div class="batt-segment {% if batt >= 80 %}filled{% endif %}"></div>
+                                <div class="batt-segment {% if batt >= 95 %}filled{% endif %}"></div>
+                            </div>
+                            <div class="solar-flow-indicator">
+                                <i class="fa-solid fa-sun text-warning" style="font-size: 10px;"></i>
+                                <span class="text-success font-mono" style="font-size: 10px;">18.2V In</span>
+                            </div>
+                        </div>
+                        <span class="hud-inst-readout font-mono text-accent">{{ batt }}% Power</span>
+                    </div>
+
+                </div>
+
+                <!-- Micro-Telemetry Footer: RF Signal, PIR Edge Latency, Diagnostics Trigger -->
+                <div class="cam-hud-footer">
+                    <div class="cam-hud-telemetry-pills">
+                        <!-- RF Signal Bars -->
+                        <div class="rf-signal-bars" title="GSM 4G LTE Signal: Excellent (RSSI -68 dBm)">
+                            <div class="rf-bar b1 active"></div>
+                            <div class="rf-bar b2 active"></div>
+                            <div class="rf-bar b3 active"></div>
+                            <div class="rf-bar b4 active"></div>
+                        </div>
+                        <div class="latency-meter-badge" title="PIR Hardware Edge Wake-Up Response">
+                            <i class="fa-solid fa-stopwatch text-success"></i>
+                            <span>&lt; 184ms Latency</span>
+                        </div>
+                        <div class="latency-meter-badge" style="color: var(--color-muted);" title="SQLite Transaction Fallback Buffer">
+                            <i class="fa-solid fa-database text-info"></i>
+                            <span>Sync OK</span>
+                        </div>
+                    </div>
+
+                    <div class="cam-hud-actions">
+                        <button class="btn btn-outline btn-sm btn-inspect-health" data-node="{{ n.node_code }}" style="padding: 5px 12px;">
+                            <i class="fa-solid fa-chart-line"></i> Deep Diagnostics
+                        </button>
+                        <button class="btn btn-primary btn-sm btn-calibrate-direct" data-node="{{ n.node_code }}" style="padding: 5px 12px;">
+                            <i class="fa-solid fa-compass"></i> Calibrate
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--color-muted); padding: 40px; font-family: var(--font-mono); letter-spacing: 1px;">
+                No planted camera nodes detected in database.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 2. TABULAR METRICS VIEW (TOGGLEABLE) -->
+        <div class="table-wrap hidden" id="system-cameras-table-wrap" style="margin-top: 16px;">
+            <table class="contacts-table" id="planted-cameras-table">
+                <thead>
+                    <tr>
+                        <th>Node & Tower</th>
+                        <th>Sector & GPS</th>
+                        <th>Thermal Sensor</th>
+                        <th>Pan-Tilt Rotator</th>
+                        <th>PIR Wake Loop</th>
+                        <th>Battery & Solar</th>
+                        <th>RF Link</th>
+                        <th>Health State</th>
+                        <th style="text-align: right;">Diagnostics</th>
+                    </tr>
+                </thead>
+                <tbody id="system-cameras-body">
+                    <!-- Populated dynamically / server-side -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- RECENT SYSTEM EVENT LOGS -->
+    <div class="full-table-card" style="margin-top: 24px;">
+        <div class="table-card-header">
+            <h4><i class="fa-solid fa-terminal"></i> Edge System Diagnostics Log</h4>
+        </div>
+        <div class="table-wrap">
+            <table class="contacts-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Subsystem</th>
+                        <th>Event Level</th>
+                        <th>Diagnostic Message</th>
+                    </tr>
+                </thead>
+                <tbody id="system-logs-body">
+                    <tr>
+                        <td class="font-mono">Today, 21:41:33</td>
+                        <td>AI Inference Engine</td>
+                        <td><span class="badge-critical">ALERT</span></td>
+                        <td>Panthera tigris detected with 94.8% confidence. Thermal coordinates: 21.1441° N, 79.0865° E.</td>
+                    </tr>
+                    <tr>
+                        <td class="font-mono">Today, 21:41:33</td>
+                        <td>SMS Dispatcher</td>
+                        <td><span class="badge-success">SUCCESS</span></td>
+                        <td>Broadcasted 42 villager SMS alerts & forest ranger dispatch.</td>
+                    </tr>
+                    <tr>
+                        <td class="font-mono">Today, 21:41:31</td>
+                        <td>PIR Motion Sensor</td>
+                        <td><span class="badge-info">WAKE</span></td>
+                        <td>Motion detected on GPIO 18. Woke camera sensor in 184ms.</td>
+                    </tr>
+                    <tr>
+                        <td class="font-mono">Today, 19:12:05</td>
+                        <td>AI Inference Engine</td>
+                        <td><span class="badge-critical">ALERT</span></td>
+                        <td>Panthera pardus (Leopard) detected with 91.2% confidence. Sector 2 warning issued.</td>
+                    </tr>
+                    <tr>
+                        <td class="font-mono">Today, 08:00:00</td>
+                        <td>Power Management</td>
+                        <td><span class="badge-info">INFO</span></td>
+                        <td>Solar controller active. Solar harvest initiated at 18.2V.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CAMERA NODE HEALTH DIAGNOSTICS -->
+<div class="modal-backdrop hidden" id="modal-node-health">
+    <div class="modal-card modal-md-card">
+        <div class="modal-header">
+            <h3 id="modal-health-title"><i class="fa-solid fa-stethoscope"></i> Camera Node Health Diagnostics</h3>
+            <button class="modal-close-btn" id="btn-close-node-health"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="node-health-modal-body">
+            <!-- Dynamic Telemetry Injected via JS -->
+            <div style="text-align: center; padding: 40px; color: var(--color-muted); font-family: var(--font-mono); letter-spacing: 1px;">
+                <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px; color: var(--color-primary);"></i><br>
+                RUNNING EDGE HARDWARE DIAGNOSTICS...
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initSystemHealthView) {
+            window.initSystemHealthView();
+        }
+
+        document.getElementById('btn-manual-sync')?.addEventListener('click', () => {
+            fetch('/api/offline/toggle', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    showTemporaryNotification(`Synced & flushed offline queue.`, 'success');
+                });
+        });
+    });
+</script>
+{% endblock %}

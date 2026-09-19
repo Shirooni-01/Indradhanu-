@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Wildlife Sightings History | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <h2><i class="fa-solid fa-clock-rotate-left"></i> Wildlife Sightings & Snapshot Archive</h2>
+            <p class="page-subtitle">Verified detections of Tigers, Leopards, Sloth Bears, and Lions around the perimeter.</p>
+        </div>
+        
+        <div class="page-header-actions">
+            <!-- Filter Pills -->
+            <div class="filter-pills">
+                <button class="filter-pill active" data-filter="all">All Species</button>
+                <button class="filter-pill" data-filter="tiger"><i class="fa-solid fa-paw"></i> Tiger</button>
+                <button class="filter-pill" data-filter="leopard"><i class="fa-solid fa-paw"></i> Leopard</button>
+                <button class="filter-pill" data-filter="bear"><i class="fa-solid fa-paw"></i> Sloth Bear</button>
+                <button class="filter-pill" data-filter="lion"><i class="fa-solid fa-paw"></i> Lion</button>
+            </div>
+
+            <!-- View Mode Switcher: List vs Cards -->
+            <div class="view-mode-toggle">
+                <button class="view-toggle-btn active" id="btn-view-list" title="Detailed List View">
+                    <i class="fa-solid fa-list-ul"></i> List
+                </button>
+                <button class="view-toggle-btn" id="btn-view-cards" title="Visual Cards Grid">
+                    <i class="fa-solid fa-table-cells-large"></i> Cards
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIST VIEW CONTAINER (DEFAULT) -->
+    <div class="history-list-view-card" id="history-list-container">
+        <div class="table-wrap">
+            <table class="contacts-table sightings-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">Snapshot</th>
+                        <th>Species</th>
+                        <th>Threat Level</th>
+                        <th>AI Confidence</th>
+                        <th>GPS Coordinates</th>
+                        <th>Village Proximity</th>
+                        <th>Detection Time</th>
+                        <th>Alert Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="sightings-table-body">
+                    <!-- Rows populated dynamically via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CARDS GRID VIEW CONTAINER (HIDDEN BY DEFAULT, TOGGLEABLE) -->
+    <div class="history-grid-container hidden" id="history-cards-container">
+        <!-- Cards injected dynamically via JS -->
+    </div>
+</div>
+
+<!-- MODAL: SNAPSHOT VIEWER -->
+<div class="modal-backdrop hidden" id="modal-snapshot">
+    <div class="modal-card modal-snapshot-card">
+        <div class="modal-header">
+            <h3 id="snapshot-modal-title"><i class="fa-solid fa-camera"></i> High-Resolution Sighting Snapshot</h3>
+            <button class="modal-close-btn" id="btn-close-snapshot"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body snapshot-modal-body">
+            <div class="snapshot-large-wrap">
+                <img id="snapshot-modal-img" src="" alt="Wildlife Snapshot">
+            </div>
+            <div class="snapshot-meta-details" id="snapshot-modal-meta">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initHistoryView) window.initHistoryView();
+    });
+</script>
+{% endblock %}

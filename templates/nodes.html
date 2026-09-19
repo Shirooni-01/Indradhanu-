@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Camera Nodes & Towers Network | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <h2><i class="fa-solid fa-tower-broadcast"></i> Camera Nodes & Surveillance Towers</h2>
+            <p class="page-subtitle">Distributed Raspberry Pi 4 edge camera nodes scanning the forest fringe with thermal imaging and pan-tilt rotators.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" id="btn-open-add-node">
+                <i class="fa-solid fa-plus"></i> Deploy New Node
+            </button>
+        </div>
+    </div>
+
+    <!-- NODE NETWORK TELEMETRY DECK -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-nodes">3</span>
+                <span class="deck-label">Total Deployed Towers</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-video"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="stat-active-nodes">1 Active / 2 Standby</span>
+                <span class="deck-label">Edge Inference Operational</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-arrows-spin"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info">360°</span>
+                <span class="deck-label">Pan-Tilt Perimeter Sweep</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-solar-panel"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning">87% Avg</span>
+                <span class="deck-label">Solar Battery Charge</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NODES GRID -->
+    <div class="nodes-grid-container" id="nodes-page-grid">
+        <!-- Rendered dynamically via JS from SQLite database -->
+    </div>
+</div>
+
+<!-- MODAL: DEPLOY NEW CAMERA NODE -->
+<div class="modal-backdrop hidden" id="modal-add-node">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-tower-broadcast"></i> Register & Deploy Camera Node</h3>
+            <button class="modal-close-btn" id="btn-close-add-node"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form class="contact-form" id="form-add-node">
+                <div class="form-group">
+                    <label>Node Code (Unique Identifier)</label>
+                    <input type="text" id="node-code" placeholder="e.g. NODE-04" required>
+                </div>
+                <div class="form-group">
+                    <label>Station / Tower Name</label>
+                    <input type="text" id="node-name" placeholder="e.g. Borpada South Ridge Tower" required>
+                </div>
+                <div class="form-group">
+                    <label>Village Sector / Zone</label>
+                    <input type="text" id="node-sector" placeholder="e.g. Sector 3 (Borpada Fringe)" required>
+                </div>
+                <div class="form-row" style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Latitude (°N)</label>
+                        <input type="number" step="0.0001" id="node-lat" placeholder="21.1420" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Longitude (°E)</label>
+                        <input type="number" step="0.0001" id="node-lon" placeholder="79.0850" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Thermal Sensor Model</label>
+                    <select id="node-camera-type">
+                        <option value="Thermal IR (MLX90640 32x24)">Thermal IR (MLX90640 32x24)</option>
+                        <option value="Thermal IR (FLIR Lepton 3.5 160x120)">Thermal IR (FLIR Lepton 3.5 160x120)</option>
+                        <option value="Thermal IR (Seek Compact Pro)">Thermal IR (Seek Compact Pro)</option>
+                        <option value="Dual Thermal + Night Vision IR">Dual Thermal + Night Vision IR</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center;">
+                    <i class="fa-solid fa-check"></i> Register Edge Node
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initNodesView) window.initNodesView();
+    });
+</script>
+{% endblock %}
