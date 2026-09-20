@@ -81,10 +81,15 @@
             <!-- TOP TELEMETRY & STATUS BAR -->
             <header class="top-header">
                 <div class="telemetry-bar">
-                    <!-- RPi Node Status -->
-                    <div class="telemetry-item">
-                        <span class="item-label"><i class="fa-solid fa-microchip"></i> RPi 4 NODE</span>
-                        <span class="item-value status-online"><span class="pulse-dot"></span> NODE-01 ACTIVE</span>
+                    <!-- Camera Node Selector Dropdown -->
+                    <div class="telemetry-item" style="border-color: var(--color-hairline-strong); min-width: 195px;">
+                        <span class="item-label"><i class="fa-solid fa-tower-broadcast"></i> ACTIVE STATION</span>
+                        <select id="camera-node-selector" class="station-select-dropdown" title="Switch active camera station">
+                            <option value="ALL">🌐 ALL STATIONS (OVERVIEW)</option>
+                            <option value="NODE-01" selected>🟢 NODE-01: Tadoba North</option>
+                            <option value="NODE-02">🟡 NODE-02: Rampur East</option>
+                            <option value="NODE-03">🟡 NODE-03: Shivpuri West</option>
+                        </select>
                     </div>
 
                     <!-- PIR Motion Sensor -->
@@ -98,7 +103,7 @@
                     <!-- Battery & Solar -->
                     <div class="telemetry-item">
                         <span class="item-label"><i class="fa-solid fa-solar-panel"></i> BATTERY</span>
-                        <span class="item-value text-accent"><i class="fa-solid fa-bolt"></i> 88% SOLAR</span>
+                        <span class="item-value text-accent" id="telemetry-battery"><i class="fa-solid fa-bolt"></i> 88% SOLAR</span>
                     </div>
 
                     <!-- Network / Offline Fallback Status -->

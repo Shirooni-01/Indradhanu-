@@ -9,7 +9,8 @@ from datetime import datetime
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from database.db_manager import (
     init_db, log_detection, queue_offline_alert, flush_offline_queue, 
-    get_recent_detections, get_contacts, get_camera_nodes, register_camera_node
+    get_recent_detections, get_contacts, get_camera_nodes, register_camera_node,
+    update_node_heartbeat, log_synced_detection
 )
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -170,33 +171,92 @@ def set_rotator_heading():
 
 @app.route("/api/detections", methods=["GET"])
 def list_detections():
+    node_filter = request.args.get("node_code")
     detections = get_recent_detections(limit=30)
+    if node_filter and node_filter != "ALL":
+        detections = [d for d in detections if d.get("node_code") == node_filter]
     return jsonify({
         "success": True,
         "count": len(detections),
         "detections": detections
     })
 
+@app.route("/api/sync/detection", methods=["POST"])
+def sync_detection():
+    """Endpoint for edge camera stations to push detections."""
+    data = request.get_json() or {}
+    species = data.get("species", "Tiger")
+    scientific_name = data.get("scientific_name", "Panthera tigris")
+    confidence = float(data.get("confidence", 90.0))
+    threat_level = data.get("threat_level", "CRITICAL")
+    lat = float(data.get("latitude", 21.1458))
+    lon = float(data.get("longitude", 79.0882))
+    distance_m = int(data.get("distance_meters", 300))
+    heading = int(data.get("rotator_heading", 145))
+    img_path = data.get("image_snapshot_path", "/static/snapshots/tiger_sample.jpg")
+    node_code = data.get("node_code", "NODE-01")
+    detected_at = data.get("detected_at")
+
+    det_id = log_synced_detection(
+        species, scientific_name, confidence, threat_level,
+        lat, lon, distance_m, heading, img_path, node_code, detected_at
+    )
+    return jsonify({
+        "success": True,
+        "detection_id": det_id,
+        "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "message": f"Detection from {node_code} ingested into Central HQ."
+    }), 201
+
+@app.route("/api/sync/heartbeat", methods=["POST"])
+def sync_heartbeat():
+    """Endpoint for edge camera stations to report station telemetry."""
+    data = request.get_json() or {}
+    node_code = data.get("node_code", "NODE-01")
+    battery = data.get("battery_pct")
+    heading = data.get("rotator_heading")
+    status = data.get("status", "ONLINE_ACTIVE")
+    lat = data.get("latitude")
+    lon = data.get("longitude")
+
+    update_node_heartbeat(node_code, battery, heading, status, lat, lon)
+    return jsonify({"success": True, "message": f"Heartbeat recorded for {node_code}"})
+
 @app.route("/api/detections/simulate", methods=["POST"])
 def simulate_detection():
     data = request.get_json() or {}
+    node_code = data.get("node_code") or SYSTEM_STATE.get("node_id", "NODE-01")
+    if node_code == "ALL":
+        node_code = random.choice(["NODE-01", "NODE-02", "NODE-03"])
+
+    # Coordinate mapping per node
+    node_coords = {
+        "NODE-01": (21.1458, 79.0882, 145),
+        "NODE-02": (21.1410, 79.0940, 210),
+        "NODE-03": (21.1495, 79.0790, 90)
+    }
+    base_lat, base_lon, default_heading = node_coords.get(node_code, (21.1440, 79.0870, 145))
+
     species_pool = [
         ("Tiger", "Panthera tigris", "CRITICAL", "/static/snapshots/tiger_sample.jpg"),
         ("Leopard", "Panthera pardus", "CRITICAL", "/static/snapshots/leopard_sample.jpg"),
         ("Indian Sloth Bear", "Melursus ursinus", "HIGH", "/static/snapshots/bear_sample.jpg"),
-        ("Lion", "Panthera leo", "CRITICAL", "/static/snapshots/lion_sample.jpg")
+        ("Lion", "Panthera leo persica", "CRITICAL", "/static/snapshots/lion_sample.jpg")
     ]
     
     choice = random.choice(species_pool)
     species, sci_name, threat, img = choice
     
-    lat = 21.1440 + (random.random() - 0.5) * 0.006
-    lon = 79.0870 + (random.random() - 0.5) * 0.006
+    lat = base_lat + (random.random() - 0.5) * 0.003
+    lon = base_lon + (random.random() - 0.5) * 0.003
     conf = round(88.0 + random.random() * 10, 1)
-    dist = random.randint(200, 480)
-    heading = SYSTEM_STATE["rotator_heading"]
+    dist = random.randint(180, 420)
+    heading = default_heading
+    now = datetime.now()
+    det_time = now.strftime("%Y-%m-%d %H:%M:%S IST")
+    rep_time = now.strftime("%Y-%m-%d %H:%M:%S IST")
     
-    det_id = log_detection(species, sci_name, conf, threat, lat, lon, dist, heading, img)
+    det_id = log_detection(species, sci_name, conf, threat, lat, lon, dist, heading, img, node_code)
     
     # Check if network is offline
     sms_status = "DELIVERED"
@@ -221,7 +281,10 @@ def simulate_detection():
             "distance_meters": dist,
             "image_path": img,
             "sms_status": sms_status,
-            "time": datetime.now().strftime("%H:%M:%S IST")
+            "time": det_time,
+            "detected_at": det_time,
+            "reported_at": rep_time,
+            "node_code": node_code
         }
     })
 

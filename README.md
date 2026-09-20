@@ -1,6 +1,9 @@
 # Project Indradhanu (Project C) 🐅
 ### Wildlife Early Warning & Perimeter Surveillance System
 
+> 🤖 **FOR AI AGENTS (ANTIGRAVITY / GEMINI / CLAUDE / COPILOT)**:
+> Before modifying this codebase, you **MUST** read [TEAMMATE_AGENT_BRIEF.md](file:///d:/Ashutosh_01/Indhradhanu/TEAMMATE_AGENT_BRIEF.md) to understand the strict project scope (strictly 4 apex predator species) and your assigned teammate role boundaries.
+
 An integrated edge-AI system designed to prevent human-wildlife conflict along forest borders and agricultural fringes. Built for deployment on **Raspberry Pi 4** with thermal imaging, pan-tilt scanning, offline SQLite fallback queuing, and emergency SMS alerts to villagers and forest authorities.
 
 ---

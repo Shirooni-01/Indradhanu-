@@ -7,7 +7,7 @@ let offlineQueueCount = 0;
 let isSoundMuted = false;
 let currentFilter = 'all';
 
-// Mock Wildlife Sighting Records
+// Mock Wildlife Sighting Records with complete surveillance telemetry
 let sightingsData = [
     {
         id: 1,
@@ -17,7 +17,14 @@ let sightingsData = [
         lat: 21.1441,
         lon: 79.0865,
         distance_meters: 280,
-        timestamp: '21:41:33 IST',
+        timestamp: '2026-09-19 21:41:33 IST',
+        detected_at: '2026-09-19 21:41:33 IST',
+        reported_at: '2026-09-19 21:41:35 IST',
+        node_code: 'NODE-01',
+        node_name: 'Tadoba North Perimeter Tower',
+        camera_type: 'Thermal IR (MLX90640 32x24 Array)',
+        rotator_heading: 145,
+        sector: 'Sector 1 (Rampur Buffer)',
         date: 'Today',
         image_path: '/static/snapshots/tiger_sample.jpg',
         threat_level: 'CRITICAL',
@@ -28,11 +35,18 @@ let sightingsData = [
         id: 2,
         species: 'Leopard',
         scientific: 'Panthera pardus',
-        confidence: 91.2,
-        lat: 21.1468,
-        lon: 79.0845,
-        distance_meters: 390,
-        timestamp: '19:12:05 IST',
+        confidence: 93.9,
+        lat: 21.14687,
+        lon: 79.08640,
+        distance_meters: 406,
+        timestamp: '2026-09-19 19:12:05 IST',
+        detected_at: '2026-09-19 19:12:05 IST',
+        reported_at: '2026-09-19 19:12:07 IST',
+        node_code: 'NODE-01',
+        node_name: 'Tadoba North Perimeter Tower',
+        camera_type: 'Thermal IR (MLX90640 32x24 Array)',
+        rotator_heading: 145,
+        sector: 'Sector 1 (Rampur Buffer)',
         date: 'Today',
         image_path: '/static/snapshots/leopard_sample.jpg',
         threat_level: 'CRITICAL',
@@ -47,7 +61,14 @@ let sightingsData = [
         lat: 21.1478,
         lon: 79.0910,
         distance_meters: 450,
-        timestamp: '18:45:12 IST',
+        timestamp: '2026-09-19 18:45:12 IST',
+        detected_at: '2026-09-19 18:45:12 IST',
+        reported_at: '2026-09-19 18:45:14 IST',
+        node_code: 'NODE-02',
+        node_name: 'Rampur East Buffer Tower',
+        camera_type: 'Thermal IR + Night Vision',
+        rotator_heading: 210,
+        sector: 'Sector 1 (Rampur Buffer)',
         date: 'Today',
         image_path: '/static/snapshots/bear_sample.jpg',
         threat_level: 'HIGH',
@@ -62,7 +83,14 @@ let sightingsData = [
         lat: 21.1415,
         lon: 79.0895,
         distance_meters: 320,
-        timestamp: '16:20:40 IST',
+        timestamp: '2026-09-19 16:20:40 IST',
+        detected_at: '2026-09-19 16:20:40 IST',
+        reported_at: '2026-09-19 16:20:42 IST',
+        node_code: 'NODE-03',
+        node_name: 'Shivpuri West Fringe Tower',
+        camera_type: 'Thermal IR (Seek Compact)',
+        rotator_heading: 90,
+        sector: 'Sector 2 (Shivpuri Fringe)',
         date: 'Today',
         image_path: '/static/snapshots/lion_sample.jpg',
         threat_level: 'CRITICAL',
@@ -84,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initClock();
     initOfflineSimulation();
     initDetectionSimulator();
+    initStationSelector();
     initModals();
 
     // Fetch permanent history from SQLite Database!
@@ -100,21 +129,40 @@ function loadDetectionsFromDB() {
         .then(r => r.json())
         .then(data => {
             if (data.success && data.detections && data.detections.length > 0) {
-                sightingsData = data.detections.map(d => ({
-                    id: d.id,
-                    species: d.species,
-                    scientific: d.scientific_name || d.species,
-                    confidence: d.confidence,
-                    lat: d.latitude,
-                    lon: d.longitude,
-                    distance_meters: d.distance_meters || 300,
-                    timestamp: d.detected_at || 'Today',
-                    date: 'Today',
-                    image_path: d.image_snapshot_path || '/static/snapshots/tiger_sample.jpg',
-                    threat_level: d.threat_level || 'CRITICAL',
-                    sms_status: 'DELIVERED',
-                    sms_count: 42
-                }));
+                sightingsData = data.detections.map(d => {
+                    const detTime = d.detected_at || d.timestamp || 'Today';
+                    const repTime = d.reported_at || formatOffsetReportedTime(detTime);
+                    const nodeCode = d.node_code || 'NODE-01';
+                    const nodeName = nodeCode === 'NODE-02' ? 'Rampur East Buffer Tower' : (nodeCode === 'NODE-03' ? 'Shivpuri West Fringe Tower' : 'Tadoba North Perimeter Tower');
+                    const camType = nodeCode === 'NODE-02' ? 'Thermal IR + Night Vision' : (nodeCode === 'NODE-03' ? 'Thermal IR (Seek Compact)' : 'Thermal IR (MLX90640 32x24 Array)');
+                    const sector = nodeCode === 'NODE-03' ? 'Sector 2 (Shivpuri Fringe)' : 'Sector 1 (Rampur Buffer)';
+                    
+                    return {
+                        id: d.id,
+                        species: d.species,
+                        scientific: d.scientific_name || d.species,
+                        confidence: d.confidence,
+                        lat: d.latitude,
+                        lon: d.longitude,
+                        distance_meters: d.distance_meters || 300,
+                        timestamp: detTime,
+                        detected_at: detTime,
+                        reported_at: repTime,
+                        node_code: nodeCode,
+                        node_name: nodeName,
+                        camera_type: camType,
+                        sector: sector,
+                        rotator_heading: d.rotator_heading || 145,
+                        date: 'Today',
+                        image_path: d.image_snapshot_path || '/static/snapshots/tiger_sample.jpg',
+                        threat_level: d.threat_level || 'CRITICAL',
+                        sms_status: 'DELIVERED',
+                        sms_count: 42,
+                        latency_badge: d.latency_badge || (d.is_delayed ? 'Offline Delayed' : 'Real-time (< 2s)'),
+                        is_delayed: d.is_delayed || false,
+                        latency_seconds: d.latency_seconds || 1
+                    };
+                });
             }
             updateDetectionsViews();
         })
@@ -237,16 +285,61 @@ function initDetectionSimulator() {
     });
 }
 
+function initStationSelector() {
+    const selector = document.getElementById('camera-node-selector');
+    if (!selector) return;
+
+    selector.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (typeof window.switchMapStation === 'function') {
+            window.switchMapStation(val);
+        }
+        updateStationTelemetryUI(val);
+    });
+}
+
+function updateStationTelemetryUI(nodeCode) {
+    const batteryEl = document.getElementById('telemetry-battery');
+    const pirEl = document.getElementById('pir-status-text');
+
+    if (nodeCode === 'ALL') {
+        if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 3 NODES ACTIVE';
+        if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> MULTI-PERIMETER';
+    } else if (nodeCode === 'NODE-02') {
+        if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 94% SOLAR';
+        if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> STANDBY (PIR WAKE)';
+    } else if (nodeCode === 'NODE-03') {
+        if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 79% SOLAR';
+        if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> STANDBY (PIR WAKE)';
+    } else {
+        if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 88% SOLAR';
+        if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> ACTIVE (PIR WAKE)';
+    }
+}
+
+window.onStationChanged = function(nodeCode) {
+    updateStationTelemetryUI(nodeCode);
+};
+
 function triggerSimulatedDetection() {
+    const selector = document.getElementById('camera-node-selector');
+    const chosenNode = selector ? selector.value : 'NODE-01';
+
     fetch('/api/detections/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
+        body: JSON.stringify({ node_code: chosenNode })
     })
     .then(r => r.json())
     .then(data => {
         if (data.success && data.detection) {
             const d = data.detection;
+            const nowStr = new Date().toTimeString().split(' ')[0] + ' IST';
+            const nodeCode = d.node_code || chosenNode;
+            const nodeName = nodeCode === 'NODE-02' ? 'Rampur East Buffer Tower' : (nodeCode === 'NODE-03' ? 'Shivpuri West Fringe Tower' : 'Tadoba North Perimeter Tower');
+            const camType = nodeCode === 'NODE-02' ? 'Thermal IR + Night Vision' : (nodeCode === 'NODE-03' ? 'Thermal IR (Seek Compact)' : 'Thermal IR (MLX90640 32x24 Array)');
+            const sector = nodeCode === 'NODE-03' ? 'Sector 2 (Shivpuri Fringe)' : 'Sector 1 (Rampur Buffer)';
+
             const newSighting = {
                 id: d.id,
                 species: d.species,
@@ -255,7 +348,14 @@ function triggerSimulatedDetection() {
                 lat: d.latitude,
                 lon: d.longitude,
                 distance_meters: d.distance_meters,
-                timestamp: d.time,
+                timestamp: d.time || nowStr,
+                detected_at: d.detected_at || d.time || nowStr,
+                reported_at: d.reported_at || formatOffsetReportedTime(d.detected_at || d.time || nowStr),
+                node_code: nodeCode,
+                node_name: nodeName,
+                camera_type: camType,
+                rotator_heading: d.rotator_heading || 145,
+                sector: sector,
                 date: 'Today',
                 image_path: d.image_path,
                 threat_level: d.threat_level,
@@ -271,6 +371,7 @@ function triggerSimulatedDetection() {
         // Fallback in case of server delay
         const animal = SPECIES_POOL[simCounter % SPECIES_POOL.length];
         simCounter++;
+        const nowStr = new Date().toTimeString().split(' ')[0] + ' IST';
         const newSighting = {
             id: Date.now(),
             species: animal.name,
@@ -279,7 +380,14 @@ function triggerSimulatedDetection() {
             lat: 21.1440 + (Math.random() - 0.5) * 0.007,
             lon: 79.0870 + (Math.random() - 0.5) * 0.007,
             distance_meters: 280,
-            timestamp: new Date().toTimeString().split(' ')[0] + ' IST',
+            timestamp: nowStr,
+            detected_at: nowStr,
+            reported_at: formatOffsetReportedTime(nowStr),
+            node_code: 'NODE-01',
+            node_name: 'Tadoba North Perimeter Tower',
+            camera_type: 'Thermal IR (MLX90640 32x24 Array)',
+            rotator_heading: 145,
+            sector: 'Sector 1 (Rampur Buffer)',
             date: 'Today',
             image_path: animal.img,
             threat_level: animal.threat,
@@ -445,7 +553,7 @@ function renderHistoryTableList() {
 
         tr.innerHTML = `
             <td>
-                <div class="table-snapshot-thumb" onclick='openSnapshotModal(${JSON.stringify(s)})'>
+                <div class="table-snapshot-thumb" onclick="openSnapshotModalById(${s.id})">
                     <img src="${s.image_path}" alt="${s.species}">
                 </div>
             </td>
@@ -457,10 +565,15 @@ function renderHistoryTableList() {
             <td><span class="card-conf-badge">${s.confidence}%</span></td>
             <td class="font-mono text-info">${s.lat.toFixed(4)}° N, ${s.lon.toFixed(4)}° E</td>
             <td>~${s.distance_meters}m from village</td>
-            <td class="font-mono text-muted">${s.timestamp}</td>
+            <td class="font-mono">
+                <span style="font-size:11px; color:var(--text-muted);">${s.timestamp}</span><br>
+                <span class="${s.is_delayed ? 'badge-high' : 'badge-online'}" style="padding:1px 5px; font-size:9px; border-radius:2px; font-weight:700;">
+                    <i class="fa-solid ${s.is_delayed ? 'fa-clock-rotate-left' : 'fa-bolt'}"></i> ${s.latency_badge || 'Real-time (< 2s)'}
+                </span>
+            </td>
             <td>${statusBadge}</td>
             <td>
-                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick='openSnapshotModal(${JSON.stringify(s)})'>
+                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="openSnapshotModalById(${s.id})">
                     <i class="fa-solid fa-magnifying-glass-plus"></i> Inspect
                 </button>
             </td>
@@ -494,6 +607,9 @@ function renderHistoryPageGrid() {
             <div class="history-card-img-wrap">
                 <img src="${s.image_path}" alt="${s.species}">
                 <span class="history-badge-top ${badgeClass}">${s.threat_level} ALERT</span>
+                <span style="position:absolute; bottom:8px; left:8px; font-family:var(--font-mono); font-size:9px; background:rgba(0,0,0,0.8); border:1px solid ${s.is_delayed ? '#f59e0b' : '#10b981'}; color:${s.is_delayed ? '#f59e0b' : '#10b981'}; padding:2px 6px; border-radius:2px; font-weight:700;">
+                    <i class="fa-solid ${s.is_delayed ? 'fa-clock-rotate-left' : 'fa-bolt'}"></i> ${s.latency_badge || 'Real-time (< 2s)'}
+                </span>
             </div>
             <div class="history-card-body">
                 <div class="card-title-line">
@@ -599,18 +715,74 @@ window.deleteContactRecord = function(id) {
 };
 
 /* ==========================================================================
-   MODALS: SNAPSHOT VIEWER
+   MODALS: SNAPSHOT VIEWER (FULL PAGE DOSSIER)
    ========================================================================== */
+let currentInspectedSighting = null;
+
+function formatOffsetReportedTime(detected) {
+    if (!detected || detected === 'Today') {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0] + ' IST';
+    }
+    const match = detected.match(/(\d{2}):(\d{2}):(\d{2})/);
+    if (match) {
+        let [_, h, m, s] = match;
+        let totalSec = parseInt(h, 10) * 3600 + parseInt(m, 10) * 60 + parseInt(s, 10) + 2;
+        let newH = String(Math.floor(totalSec / 3600) % 24).padStart(2, '0');
+        let newM = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+        let newS = String(totalSec % 60).padStart(2, '0');
+        return detected.replace(/(\d{2}):(\d{2}):(\d{2})/, `${newH}:${newM}:${newS}`);
+    }
+    return detected;
+}
+
 function initModals() {
     const snapModal = document.getElementById('modal-snapshot');
+    
+    // Close button
     document.getElementById('btn-close-snapshot')?.addEventListener('click', () => {
         snapModal?.classList.add('hidden');
     });
 
+    // Backdrop click
     window.addEventListener('click', (e) => {
         if (e.target === snapModal) snapModal.classList.add('hidden');
         const addModal = document.getElementById('modal-add-contact');
         if (e.target === addModal) addModal.classList.add('hidden');
+    });
+
+    // Escape key
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && snapModal && !snapModal.classList.contains('hidden')) {
+            snapModal.classList.add('hidden');
+        }
+    });
+
+    // Thermal Image Filters
+    document.querySelectorAll('.toolbar-filter-buttons .filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.toolbar-filter-buttons .filter-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const img = document.getElementById('snapshot-modal-img');
+            if (!img) return;
+
+            const mode = this.dataset.imgFilter;
+            if (mode === 'normal') {
+                img.style.filter = 'none';
+            } else if (mode === 'ironbow') {
+                img.style.filter = 'contrast(1.35) saturate(1.8) hue-rotate(330deg)';
+            } else if (mode === 'invert') {
+                img.style.filter = 'invert(1) hue-rotate(180deg)';
+            } else if (mode === 'contrast') {
+                img.style.filter = 'contrast(2.2) brightness(1.1) grayscale(0.25)';
+            }
+        });
+    });
+
+    // Dispatch SMS from Dossier
+    document.getElementById('btn-inspect-dispatch-sms')?.addEventListener('click', () => {
+        const speciesName = currentInspectedSighting?.species || 'Predator';
+        showTemporaryNotification(`[GSM BROADCAST] Emergency SMS alert for ${speciesName} dispatched to 42 registered villagers & forest outpost.`, 'success');
     });
 }
 
@@ -618,40 +790,195 @@ function openSnapshotModal(sighting) {
     const modal = document.getElementById('modal-snapshot');
     if (!modal) return;
 
+    currentInspectedSighting = sighting;
+
+    // Normalizing all telemetry attributes
+    const species = sighting.species || 'Unknown Wildlife';
+    const scientific = sighting.scientific || sighting.scientific_name || 'Species unverified';
+    const confidence = (parseFloat(sighting.confidence) || 93.9).toFixed(1);
+    const lat = typeof sighting.lat === 'number' ? sighting.lat : (parseFloat(sighting.latitude) || 21.14687);
+    const lon = typeof sighting.lon === 'number' ? sighting.lon : (parseFloat(sighting.longitude) || 79.08640);
+    const distanceMeters = sighting.distance_meters || 406;
+    const threatLevel = sighting.threat_level || 'CRITICAL';
+    const isCritical = threatLevel === 'CRITICAL';
+    const imagePath = sighting.image_path || sighting.image_snapshot_path || '/static/snapshots/leopard_sample.jpg';
+    
+    // Node number & camera station details
+    const nodeCode = sighting.node_code || 'NODE-01';
+    const nodeName = sighting.node_name || (nodeCode === 'NODE-02' ? 'Rampur East Buffer Tower' : (nodeCode === 'NODE-03' ? 'Shivpuri West Fringe Tower' : 'Tadoba North Perimeter Tower'));
+    const cameraType = sighting.camera_type || (nodeCode === 'NODE-02' ? 'Thermal IR + Night Vision' : (nodeCode === 'NODE-03' ? 'Thermal IR (Seek Compact)' : 'Thermal IR (MLX90640 32x24 Array)'));
+    const rotatorHeading = sighting.rotator_heading || sighting.heading || 145;
+    const sector = sighting.sector || (nodeCode === 'NODE-03' ? 'Sector 2 (Shivpuri Fringe)' : 'Sector 1 (Rampur Buffer)');
+
+    // Timestamps: detected at and reported at
+    const detectedAt = sighting.detected_at || sighting.timestamp || sighting.time || '2026-09-20 12:49:54 IST';
+    const reportedAt = sighting.reported_at || formatOffsetReportedTime(detectedAt);
+
+    // SMS notification status
+    const isSmsDelivered = (sighting.sms_status || (isOfflineMode ? 'QUEUED_OFFLINE' : 'DELIVERED')) === 'DELIVERED';
+    const smsCount = sighting.sms_count || 42;
+
+    // Update Header
     const title = document.getElementById('snapshot-modal-title');
+    if (title) {
+        title.innerHTML = `<i class="fa-solid fa-paw" style="color:${isCritical ? '#ef4444' : '#f59e0b'};"></i> ${species.toUpperCase()} - THERMAL VERIFICATION SNAPSHOT`;
+    }
+
+    const nodePill = document.getElementById('dossier-node-pill');
+    if (nodePill) {
+        nodePill.innerHTML = `<i class="fa-solid fa-tower-broadcast"></i> ${nodeCode}`;
+    }
+
+    // Update Visual Column
     const img = document.getElementById('snapshot-modal-img');
+    if (img) {
+        img.src = imagePath;
+        img.alt = `${species} Thermal Snapshot`;
+        img.style.filter = 'none';
+    }
+
+    // Reset filter buttons
+    document.querySelectorAll('.toolbar-filter-buttons .filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.imgFilter === 'normal');
+    });
+
+    const sensorEl = document.getElementById('dossier-hud-sensor');
+    if (sensorEl) sensorEl.textContent = cameraType.includes('MLX') ? 'MLX90640 32x24 UPX' : cameraType;
+
+    const tempEl = document.getElementById('dossier-hud-temp');
+    if (tempEl) tempEl.innerHTML = `<i class="fa-solid fa-fire-flame-curved"></i> 38.4°C [HEAT SIGNATURE DETECTED]`;
+
+    const reticleLabel = document.getElementById('reticle-species-label');
+    if (reticleLabel) reticleLabel.textContent = `${species.toUpperCase()} DETECTED`;
+
+    const bearingEl = document.getElementById('dossier-hud-bearing');
+    if (bearingEl) bearingEl.innerHTML = `<i class="fa-solid fa-compass"></i> AZ: ${rotatorHeading}° SE`;
+
+    const hudNodeEl = document.getElementById('dossier-hud-node');
+    if (hudNodeEl) hudNodeEl.innerHTML = `<i class="fa-solid fa-camera"></i> ${nodeCode} TOWER`;
+
+    const filePathEl = document.getElementById('dossier-filepath');
+    if (filePathEl) filePathEl.innerHTML = `<i class="fa-regular fa-file-image"></i> <span>${imagePath}</span>`;
+
+    // Populate Right Column: Complete Telemetry Cards
     const meta = document.getElementById('snapshot-modal-meta');
+    if (meta) {
+        meta.innerHTML = `
+            <!-- 1. TYPE OF ANIMAL -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-paw text-danger"></i> TYPE OF ANIMAL & SPECIES</label>
+                <div class="card-value-primary">
+                    <span style="color:${isCritical ? '#ef4444' : '#f59e0b'}; font-size:15px;">${species}</span>
+                    <span class="${isCritical ? 'badge-critical' : 'badge-high'}" style="padding:2px 6px; font-size:9px;">${threatLevel}</span>
+                </div>
+                <div class="card-value-sub"><em>${scientific}</em></div>
+                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Classification: Apex Carnivore (Schedule I)</div>
+            </div>
 
-    title.innerHTML = `<i class="fa-solid fa-paw"></i> ${sighting.species} - Thermal Verification Snapshot`;
-    img.src = sighting.image_path;
+            <!-- 2. AI CONFIDENCE RATE -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-brain text-success"></i> CONFIDENCE RATE</label>
+                <div class="card-value-primary">
+                    <span style="color:#10b981; font-size:15px;">${confidence}% Verified</span>
+                    <span style="font-size:9.5px; color:var(--color-muted);">YOLOv8 IR</span>
+                </div>
+                <div class="conf-meter-track">
+                    <div class="conf-meter-fill" style="width:${confidence}%;"></div>
+                </div>
+                <div class="card-value-sub" style="margin-top:2px;">Neural Engine: Edge IR Core v2.4 (184ms)</div>
+            </div>
 
-    meta.innerHTML = `
-        <div class="meta-field">
-            <label>TARGET SPECIES & SCIENTIFIC NAME</label>
-            <span style="color:#ef4444;">${sighting.species} (<em>${sighting.scientific}</em>)</span>
-        </div>
-        <div class="meta-field">
-            <label>AI CLASSIFICATION CONFIDENCE</label>
-            <span style="color:#10b981;">${sighting.confidence}% Verified</span>
-        </div>
-        <div class="meta-field">
-            <label>GPS COORDINATES</label>
-            <span style="color:#06b6d4;">${sighting.lat.toFixed(5)}° N, ${sighting.lon.toFixed(5)}° E</span>
-        </div>
-        <div class="meta-field">
-            <label>VILLAGE PROXIMITY HAZARD</label>
-            <span>~${sighting.distance_meters} meters from residential fringe</span>
-        </div>
-        <div class="meta-field">
-            <label>SMS NOTIFICATION STATUS</label>
-            <span style="color:${sighting.sms_status === 'DELIVERED' ? '#10b981' : '#f59e0b'};">
-                ${sighting.sms_status === 'DELIVERED' ? 'Dispatched to 42 Villagers & Forest Post' : 'Stored in SQLite Local Fallback (Zero Network)'}
-            </span>
-        </div>
-    `;
+            <!-- 3. NODE NUMBER (WHICH CAMERA) -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-tower-broadcast text-info"></i> NODE NUMBER (WHICH CAMERA)</label>
+                <div class="card-value-primary">
+                    <span style="color:var(--color-link); font-size:15px;"><i class="fa-solid fa-camera"></i> ${nodeCode}</span>
+                    <span class="badge-online" style="padding:2px 6px; font-size:9px;"><i class="fa-solid fa-circle"></i> ACTIVE</span>
+                </div>
+                <div class="card-value-sub">Station: ${nodeName}</div>
+                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">${cameraType}</div>
+            </div>
+
+            <!-- 4. LOCATION -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-location-crosshairs text-info"></i> LOCATION (GPS & SECTOR)</label>
+                <div class="card-value-primary">
+                    <span style="color:#06b6d4; font-size:12.5px;">${lat.toFixed(5)}° N, ${lon.toFixed(5)}° E</span>
+                </div>
+                <div class="card-value-sub">${sector}</div>
+                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Pan-Tilt Azimuth: ${rotatorHeading}° SE Bearing</div>
+            </div>
+
+            <!-- 5. VILLAGE APPROX HAZARD -->
+            <div class="dossier-card card-span-2">
+                <label><i class="fa-solid fa-triangle-exclamation text-warning"></i> VILLAGE APPROX HAZARD</label>
+                <div class="card-value-primary">
+                    <span style="color:var(--color-primary); font-size:14px;">~${distanceMeters} meters from residential fringe</span>
+                    <span class="hazard-pill-critical">
+                        <i class="fa-solid fa-shield-halved"></i> ${distanceMeters < 350 ? 'RED ZONE - CRITICAL PROXIMITY (<350m)' : 'ORANGE ZONE - PERIMETER BUFFER HAZARD'}
+                    </span>
+                </div>
+                <div class="card-value-sub">Target Settlement: Rampur Village Perimeter (Buffer Zone Radius: 650m)</div>
+                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft); margin-top:2px;">
+                    Automated perimeter alert activated. Area farmers and forest workers advised to remain within safe boundary.
+                </div>
+            </div>
+
+            <!-- 6. DETECTED AT (TIME) -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-clock text-info"></i> DETECTED AT (TIME)</label>
+                <div class="card-value-primary">
+                    <span style="color:var(--color-primary); font-size:12.5px;">${detectedAt}</span>
+                </div>
+                <div class="card-value-sub"><i class="fa-solid fa-person-running"></i> PIR Hardware Trigger (GPIO 18)</div>
+                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Sensor-to-infer wake latency: 184ms</div>
+            </div>
+
+            <!-- 7. REPORTED AT & NETWORK SYNC LATENCY (SECTION 4.2) -->
+            <div class="dossier-card">
+                <label><i class="fa-solid fa-cloud-arrow-up text-warning"></i> REPORTED AT & SYNC LATENCY</label>
+                <div class="card-value-primary">
+                    <span style="color:var(--color-warning); font-size:12.5px;">${reportedAt}</span>
+                    <span class="${sighting.is_delayed ? 'badge-high' : 'badge-online'}" style="padding:2px 6px; font-size:9px; font-weight:700;">
+                        <i class="fa-solid ${sighting.is_delayed ? 'fa-clock-rotate-left' : 'fa-bolt'}"></i> ${sighting.latency_badge || 'Real-time (< 2s)'}
+                    </span>
+                </div>
+                <div class="card-value-sub"><i class="fa-solid fa-satellite-dish"></i> Central HQ Ingest (Sec 4.2)</div>
+                <div class="card-value-sub" style="font-size:9.5px; color:${sighting.is_delayed ? '#f59e0b' : 'var(--color-muted-soft)'};">
+                    ${sighting.is_delayed ? '⚠️ Offline Backlog Recovery (flushed from edge SQLite after network restoration)' : '⚡ Real-Time Uplink (reported_at - detected_at < 2s)'}
+                </div>
+            </div>
+
+            <!-- 8. SMS NOTIFICATION -->
+            <div class="dossier-card card-span-2">
+                <label><i class="fa-solid fa-comment-sms text-success"></i> SMS NOTIFICATION</label>
+                <div class="card-value-primary">
+                    <span style="color:${isSmsDelivered ? '#10b981' : '#f59e0b'}; font-size:13px;">
+                        <i class="fa-solid ${isSmsDelivered ? 'fa-check-double' : 'fa-database'}"></i>
+                        ${isSmsDelivered ? `Dispatched to ${smsCount} Villagers & Forest Post` : 'Stored in SQLite Local Fallback (Zero Network Outage)'}
+                    </span>
+                    <span class="${isSmsDelivered ? 'badge-online' : 'badge-idle'}" style="padding:2px 6px; font-size:9px;">
+                        ${isSmsDelivered ? 'GSM 4G ACTIVE' : 'OFFLINE QUEUED'}
+                    </span>
+                </div>
+                <div class="card-value-sub">Recipients: 42 Registered Villagers + Sarpanch (Ramesh Patil) + Forest Ranger (Sanjay Deshmukh)</div>
+                <div class="sms-payload-box">
+                    <strong><i class="fa-solid fa-terminal"></i> DISPATCHED SMS PAYLOAD:</strong> "[EMERGENCY WARNING] ${species} detected by ${nodeCode} at ~${distanceMeters}m from Rampur fringe. Stay indoors and secure livestock. - Forest Dept."
+                </div>
+            </div>
+        `;
+    }
 
     modal.classList.remove('hidden');
 }
+
+window.openSnapshotModal = openSnapshotModal;
+window.openSnapshotModalById = function(id) {
+    const item = sightingsData.find(s => s.id === id || s.id === Number(id));
+    if (item) {
+        openSnapshotModal(item);
+    }
+};
 
 function showTemporaryNotification(message, type = 'info') {
     const toast = document.createElement('div');

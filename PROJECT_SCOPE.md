@@ -29,19 +29,23 @@ Only the following four (4) wild animals:
 
 ---
 
-## 4. Critical Offline Bottleneck & Solution
+## 4. Critical Offline Bottleneck & Dual-Layer Data Storage
 - **The Bottleneck:** Zero internet / Cellular network outages in remote forest fringe villages.
-- **The Solution:** 
-  - Local **SQLite** fallback engine.
-  - When offline, alerts are safely transactionalized and queued in SQLite.
-  - When the system reconnects to network, all queued alerts are automatically processed and sent. Zero alert loss.
+- **The Dual-Layer Architecture:** 
+  1. **Edge Storage (SQLite):**
+     - On every edge unit, upon AI detection of a target animal, the complete detection payload (`species`, `latitude`, `longitude`, `confidence`, `threat_level`, `detected_at` timestamp, and `image_snapshot_path`) is stored **immediately** in local SQLite, regardless of network availability.
+     - Handles SMS alert queuing during network blackouts to guarantee zero alert loss.
+  2. **Central / Cloud Storage (PostgreSQL):**
+     - When network connectivity is available, data is shifted/synchronized from edge SQLite to central PostgreSQL.
+     - **`reported_at` Column:** In PostgreSQL, records include a dedicated `reported_at` timestamp marking the exact time data was transferred from SQLite, allowing operators to measure network sync latency (`reported_at` - `detected_at`) and distinguish real-time alerts from delayed historical logs.
 
 ---
 
 ## 5. Technology Stack
 - **Frontend:** HTML, CSS, JavaScript
 - **Backend:** Python (Flask)
-- **Database:** SQLite (local persistent storage and offline fallback queue)
+- **Edge Database:** SQLite (immediate local persistent storage and offline fallback queue)
+- **Central / Cloud Database:** PostgreSQL (centralized repository with `reported_at` sync tracking)
 - **AI/ML:** Dedicated animal detection model trained by the AI/ML teammate
 - **Dashboard:** Live tactical map and monitoring interface
 

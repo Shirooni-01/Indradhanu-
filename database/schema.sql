@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS detections (
     distance_meters INTEGER,               -- Distance to nearest village boundary
     rotator_heading INTEGER,                -- Compass angle in degrees (0-360)
     image_snapshot_path TEXT,
-    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    node_code TEXT DEFAULT 'NODE-01',       -- Camera Station identifier (e.g. NODE-01)
+    detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Table for Registered Villagers and Forest Department Contacts

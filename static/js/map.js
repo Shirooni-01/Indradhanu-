@@ -3,15 +3,52 @@
  * Features: Satellite Tiles, Dynamic Radar Scanning Cone, Village Perimeter, Threat Markers
  */
 
-// Central Camera Station Coordinates (Tadoba-Andhari Buffer Zone Perimeter)
-const TOWER_COORDS = [21.1458, 79.0882];
+// Multi-Camera Station Network (Tadoba-Andhari Buffer Zone Perimeter)
+const CAMERA_STATIONS = {
+    'NODE-01': {
+        code: 'NODE-01',
+        name: 'Tadoba North Perimeter Tower',
+        sector: 'Sector 1 (Rampur Buffer)',
+        coords: [21.1458, 79.0882],
+        heading: 145,
+        battery: 88,
+        status: 'ONLINE_ACTIVE',
+        color: '#06b6d4',
+        camType: 'Thermal IR (MLX90640)'
+    },
+    'NODE-02': {
+        code: 'NODE-02',
+        name: 'Rampur East Buffer Tower',
+        sector: 'Sector 1 (Rampur Buffer)',
+        coords: [21.1410, 79.0940],
+        heading: 210,
+        battery: 94,
+        status: 'STANDBY',
+        color: '#f59e0b',
+        camType: 'Thermal IR + Night Vision'
+    },
+    'NODE-03': {
+        code: 'NODE-03',
+        name: 'Shivpuri West Fringe Tower',
+        sector: 'Sector 2 (Shivpuri Fringe)',
+        coords: [21.1495, 79.0790],
+        heading: 90,
+        battery: 79,
+        status: 'STANDBY',
+        color: '#10b981',
+        camType: 'Thermal IR (Seek Compact)'
+    }
+};
+
+let activeStationCode = 'NODE-01';
+let currentRadarOrigin = [21.1458, 79.0882];
+let stationMarkers = {};
 const VILLAGE_COORDS = [21.1390, 79.0830]; // Rampur Village Center
 
 let map = null;
 let satLayer = null;
 let osmLayer = null;
 let radarConePolygon = null;
-let towerMarker = null;
 let sightingMarkersGroup = null;
 
 // Current radar orientation (matches physical rotator heading)
@@ -77,33 +114,53 @@ function initTacticalMap() {
     }).addTo(map);
     forestBoundary.bindTooltip("Protected Forest Perimeter", { sticky: true, className: "map-label-forest" });
 
-    // 5. Draw Camera Tower Station (Cyan Marker)
-    const towerIcon = L.divIcon({
-        className: 'tower-icon-wrapper',
-        html: `
-            <div style="position:relative; width:32px; height:32px; background:rgba(6, 182, 212, 0.2); border:2px solid #06b6d4; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 15px #06b6d4;">
-                <i class="fa-solid fa-tower-broadcast" style="color:#ffffff; font-size:14px;"></i>
-                <div style="position:absolute; width:100%; height:100%; border-radius:50%; border:1px solid #06b6d4; animation: pulseGlow 1.8s infinite;"></div>
-            </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-    });
+    // 5. Draw All Camera Tower Stations
+    Object.keys(CAMERA_STATIONS).forEach(code => {
+        const st = CAMERA_STATIONS[code];
+        const color = st.color || '#06b6d4';
+        
+        const towerIcon = L.divIcon({
+            className: `tower-icon-wrapper tower-${code.toLowerCase()}`,
+            html: `
+                <div style="position:relative; width:34px; height:34px; background:rgba(0,0,0,0.75); border:2px solid ${color}; border-radius:50%; display:flex; align-items:center; justify-content:center; box-shadow:0 0 12px ${color}; cursor:pointer;">
+                    <i class="fa-solid fa-tower-broadcast" style="color:${color}; font-size:13px;"></i>
+                    <div style="position:absolute; bottom:-16px; font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700; color:#fff; background:#000; padding:1px 4px; border:1px solid ${color}; border-radius:2px; white-space:nowrap;">
+                        ${code}
+                    </div>
+                </div>
+            `,
+            iconSize: [34, 34],
+            iconAnchor: [17, 17]
+        });
 
-    towerMarker = L.marker(TOWER_COORDS, { icon: towerIcon }).addTo(map);
-    towerMarker.bindPopup(`
-        <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#0f172a;">
-            <strong style="color:#0284c7;"><i class="fa-solid fa-tower-broadcast"></i> NODE-01 CAMERA TOWER</strong><br>
-            <span>Lat: 21.1458° N, Lon: 79.0882° E</span><br>
-            <span>Height: 12m | Rotator: Active</span>
-        </div>
-    `);
+        const marker = L.marker(st.coords, { icon: towerIcon }).addTo(map);
+        marker.bindPopup(`
+            <div style="font-family:'JetBrains Mono', monospace; font-size:12px; color:#0f172a; min-width:180px;">
+                <strong style="color:${color};"><i class="fa-solid fa-tower-broadcast"></i> ${st.code}: ${st.name}</strong><br>
+                <span style="font-size:11px; color:#475569;">Sector: ${st.sector}</span><br>
+                <span>Status: <b>${st.status}</b></span><br>
+                <span>Battery: <b>${st.battery}% Solar</b></span><br>
+                <span>Heading: <b>${st.heading}°</b></span><br>
+                <div style="margin-top:8px;">
+                    <button onclick="window.switchMapStation('${code}')" style="background:#0f172a; color:#fff; border:1px solid #38bdf8; padding:4px 8px; font-size:10px; cursor:pointer; border-radius:2px; width:100%; font-family:'JetBrains Mono',monospace;">
+                        <i class="fa-solid fa-crosshairs"></i> Select Station & Aim Radar
+                    </button>
+                </div>
+            </div>
+        `);
+
+        marker.on('click', () => {
+            switchActiveStation(code);
+        });
+
+        stationMarkers[code] = marker;
+    });
 
     // Group for sighting markers
     sightingMarkersGroup = L.layerGroup().addTo(map);
 
-    // 6. Draw Initial Radar Scanning Cone
-    updateRadarCone(currentHeadingAngle);
+    // 6. Draw Initial Radar Scanning Cone on default station (NODE-01)
+    updateRadarCone(currentHeadingAngle, currentRadarOrigin);
 
     // Bind Layer Toggle Buttons
     document.getElementById('btn-layer-sat')?.addEventListener('click', function() {
@@ -157,21 +214,24 @@ function destinationPoint(lat, lon, distanceMeters, bearingDegrees) {
  * Redraws the dynamic Radar Scanning Cone radiating from the tower
  * based on current rotator heading angle.
  */
-function updateRadarCone(headingDegrees) {
+function updateRadarCone(headingDegrees, originCoords = null) {
+    if (originCoords) {
+        currentRadarOrigin = originCoords;
+    }
     currentHeadingAngle = headingDegrees;
 
     const startAngle = headingDegrees - (SCAN_FOV_DEG / 2);
     const endAngle = headingDegrees + (SCAN_FOV_DEG / 2);
 
-    const conePoints = [TOWER_COORDS];
+    const conePoints = [currentRadarOrigin];
     const steps = 15;
 
     for (let i = 0; i <= steps; i++) {
         const stepAngle = startAngle + (i * (SCAN_FOV_DEG / steps));
-        const pt = destinationPoint(TOWER_COORDS[0], TOWER_COORDS[1], SCAN_RANGE_METERS, stepAngle);
+        const pt = destinationPoint(currentRadarOrigin[0], currentRadarOrigin[1], SCAN_RANGE_METERS, stepAngle);
         conePoints.push(pt);
     }
-    conePoints.push(TOWER_COORDS);
+    conePoints.push(currentRadarOrigin);
 
     if (radarConePolygon) {
         radarConePolygon.setLatLngs(conePoints);
@@ -183,6 +243,38 @@ function updateRadarCone(headingDegrees) {
             fillOpacity: 0.18,
             dashArray: '4, 4'
         }).addTo(map);
+    }
+}
+
+/**
+ * Switches the active camera station on the tactical map.
+ */
+function switchActiveStation(nodeCode) {
+    activeStationCode = nodeCode;
+
+    // Sync header dropdown if available
+    const selector = document.getElementById('camera-node-selector');
+    if (selector && selector.value !== nodeCode) {
+        selector.value = nodeCode;
+    }
+
+    if (nodeCode === 'ALL') {
+        map.setView([21.1450, 79.0865], 14, { animate: true });
+        const def = CAMERA_STATIONS['NODE-01'];
+        if (def) updateRadarCone(def.heading, def.coords);
+    } else if (CAMERA_STATIONS[nodeCode]) {
+        const st = CAMERA_STATIONS[nodeCode];
+        map.setView(st.coords, 16, { animate: true });
+        updateRadarCone(st.heading, st.coords);
+
+        if (stationMarkers[nodeCode]) {
+            stationMarkers[nodeCode].openPopup();
+        }
+    }
+
+    // Notify app.js of station change
+    if (typeof window.onStationChanged === 'function') {
+        window.onStationChanged(nodeCode);
     }
 }
 
@@ -248,3 +340,5 @@ window.panToSighting = function(lat, lon) {
 window.updateMapRadarAngle = updateRadarCone;
 window.addMapThreat = addThreatMarker;
 window.initTacticalMap = initTacticalMap;
+window.switchMapStation = switchActiveStation;
+window.CAMERA_STATIONS = CAMERA_STATIONS;

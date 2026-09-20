@@ -42,19 +42,85 @@
     </div>
 </div>
 
-<!-- MODAL: SNAPSHOT VIEWER -->
+<!-- FULL PAGE MODAL: SIGHTING INSPECTION & THERMAL TELEMETRY DOSSIER -->
 <div class="modal-backdrop hidden" id="modal-snapshot">
-    <div class="modal-card modal-snapshot-card">
-        <div class="modal-header">
-            <h3 id="snapshot-modal-title"><i class="fa-solid fa-camera"></i> High-Resolution Sighting Snapshot</h3>
-            <button class="modal-close-btn" id="btn-close-snapshot"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body snapshot-modal-body">
-            <div class="snapshot-large-wrap">
-                <img id="snapshot-modal-img" src="" alt="Wildlife Snapshot">
+    <div class="modal-card modal-snapshot-card modal-fullscreen-dossier">
+        <div class="modal-header dossier-header">
+            <div class="dossier-header-left">
+                <span class="dossier-category-tag"><i class="fa-solid fa-shield-cat"></i> PERIMETER SURVEILLANCE // FULL INSPECTION DOSSIER</span>
+                <h3 id="snapshot-modal-title"><i class="fa-solid fa-paw"></i> Leopard - Thermal Verification Snapshot</h3>
             </div>
-            <div class="snapshot-meta-details" id="snapshot-modal-meta">
-                <!-- Populated by JS -->
+            <div class="dossier-header-actions">
+                <span class="dossier-node-pill" id="dossier-node-pill"><i class="fa-solid fa-tower-broadcast"></i> NODE-01</span>
+                <a href="/history" class="btn btn-outline btn-sm" id="btn-inspect-view-archive" title="View all historical sightings">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Archive
+                </a>
+                <button class="btn btn-primary btn-sm" id="btn-inspect-dispatch-sms" title="Trigger SMS broadcast">
+                    <i class="fa-solid fa-paper-plane"></i> Dispatch Alert
+                </button>
+                <button class="modal-close-btn" id="btn-close-snapshot" title="Close Dossier (Esc)">
+                    <i class="fa-solid fa-xmark"></i> <span>CLOSE</span>
+                </button>
+            </div>
+        </div>
+        <div class="modal-body snapshot-modal-body dossier-modal-body">
+            <!-- Left Panel: Visual Sensor HUD & Snapshot Viewer -->
+            <div class="dossier-visual-column">
+                <div class="snapshot-large-wrap" id="snapshot-hud-wrapper">
+                    <!-- Thermal Snapshot Image -->
+                    <img id="snapshot-modal-img" src="" alt="Wildlife Snapshot">
+                    
+                    <!-- HUD Tactical Corner Brackets -->
+                    <div class="hud-corner-bracket hud-tl"></div>
+                    <div class="hud-corner-bracket hud-tr"></div>
+                    <div class="hud-corner-bracket hud-bl"></div>
+                    <div class="hud-corner-bracket hud-br"></div>
+                    
+                    <!-- Top HUD Status -->
+                    <div class="hud-overlay-top">
+                        <span class="hud-rec-indicator"><span class="pulse-dot"></span> THERMAL-IR [16Hz]</span>
+                        <span class="hud-sensor-model" id="dossier-hud-sensor">MLX90640 32x24 UPX</span>
+                    </div>
+
+                    <!-- Thermal Heat Signature Badge -->
+                    <div class="hud-heat-signature-tag" id="dossier-hud-temp">
+                        <i class="fa-solid fa-fire-flame-curved"></i> 38.4°C [HEAT SIGNATURE DETECTED]
+                    </div>
+
+                    <!-- Target Focus Reticle -->
+                    <div class="hud-target-reticle">
+                        <div class="reticle-box">
+                            <span class="reticle-label" id="reticle-species-label">TARGET LOCKED</span>
+                        </div>
+                    </div>
+
+                    <!-- Bottom HUD Telemetry -->
+                    <div class="hud-overlay-bottom">
+                        <span id="dossier-hud-bearing"><i class="fa-solid fa-compass"></i> AZ: 145° SE</span>
+                        <span id="dossier-hud-node"><i class="fa-solid fa-camera"></i> NODE-01 TOWER</span>
+                    </div>
+                </div>
+
+                <!-- Visual Filter & Image Tools Bar -->
+                <div class="dossier-image-toolbar">
+                    <div class="toolbar-label"><i class="fa-solid fa-sliders"></i> FILTER:</div>
+                    <div class="toolbar-filter-buttons">
+                        <button class="filter-btn active" data-img-filter="normal">THERMAL RAW</button>
+                        <button class="filter-btn" data-img-filter="ironbow">ENHANCED IR</button>
+                        <button class="filter-btn" data-img-filter="invert">INVERT</button>
+                        <button class="filter-btn" data-img-filter="contrast">CONTRAST</button>
+                    </div>
+                    <div class="toolbar-filepath" id="dossier-filepath" title="Raw snapshot storage path">
+                        <i class="fa-regular fa-file-image"></i> <span>/static/snapshots/...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Comprehensive Intelligence & Telemetry Cards -->
+            <div class="dossier-meta-column">
+                <div class="snapshot-meta-details dossier-grid" id="snapshot-modal-meta">
+                    <!-- Dynamically populated by JS -->
+                </div>
             </div>
         </div>
     </div>
