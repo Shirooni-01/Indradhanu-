@@ -15,6 +15,9 @@ from database.db_manager import (
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
+# Ensure database tables and initial records exist on server startup
+init_db()
+
 # System in-memory state
 SYSTEM_STATE = {
     "node_id": "NODE-01",
@@ -294,9 +297,9 @@ def list_contacts():
     return jsonify({"success": True, "contacts": contacts})
 
 if __name__ == "__main__":
-    init_db()
+    port = int(os.environ.get("PORT", 5000))
     print("=" * 60)
     print(" PROJECT INDRADHANU (PROJECT C) - MONITORING STATION")
-    print(" Dashboard: http://127.0.0.1:5000")
+    print(f" Dashboard: http://127.0.0.1:{port}")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True)
