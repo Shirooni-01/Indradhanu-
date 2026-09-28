@@ -1,17 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}Wildlife Sightings History | Project Indradhanu{% endblock %}
+{% block title %}Wildlife Sightings | Project Indradhanu{% endblock %}
 
 {% block content %}
 <div class="page-container">
     <div class="page-header-row">
         <div class="page-title-block">
-            <h2><i class="fa-solid fa-clock-rotate-left"></i> Wildlife Sightings & Snapshot Archive</h2>
-            <p class="page-subtitle">Verified detections of Tigers, Leopards, Sloth Bears, and Lions around the perimeter.</p>
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-shield-cat"></i> PERIMETER SPATIAL REGISTRY</span>
+                <h2><i class="fa-solid fa-clock-rotate-left"></i> Wildlife Sightings</h2>
+            </div>
+            <p class="page-subtitle">Verified detections of Tigers, Leopards, Sloth Bears, and Lions around the perimeter buffer.</p>
         </div>
         
         <div class="page-header-actions">
-            <!-- Filter Pills -->
+            <!-- Filter Pills (Strict 4-Animal Scope) -->
             <div class="filter-pills">
                 <button class="filter-pill active" data-filter="all">All Species</button>
                 <button class="filter-pill" data-filter="tiger"><i class="fa-solid fa-paw"></i> Tiger</button>
@@ -32,6 +35,38 @@
         </div>
     </div>
 
+    <!-- SUMMARY METRICS CARDS DECK -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-sightings">4</span>
+                <span class="deck-label">Logged Detections</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-alert"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-alert" id="stat-critical-sightings">3 CRITICAL</span>
+                <span class="deck-label">Apex Carnivore Encounters</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="stat-delayed-sightings">1 Delayed</span>
+                <span class="deck-label">Store-and-Forward Sync</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-tower-broadcast"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success">100% ONLINE</span>
+                <span class="deck-label">All 3 Tower Arrays Active</span>
+            </div>
+        </div>
+    </div>
+
     <!-- LIST VIEW CONTAINER (DEFAULT) -->
     <div class="history-list-view-card" id="history-list-container">
         <div class="table-wrap">
@@ -44,7 +79,7 @@
                         <th>AI Confidence</th>
                         <th>GPS Coordinates</th>
                         <th>Village Proximity</th>
-                        <th>Detection Time</th>
+                        <th>Detection Time &amp; Sync</th>
                         <th>Alert Status</th>
                         <th>Action</th>
                     </tr>
@@ -64,7 +99,7 @@
 
 <!-- FULL PAGE MODAL: SIGHTING INSPECTION & THERMAL TELEMETRY DOSSIER -->
 <div class="modal-backdrop hidden" id="modal-snapshot">
-    <div class="modal-card modal-snapshot-card modal-fullscreen-dossier">
+    <div class="modal-card modal-snapshot-card modal-fullscreen-dossier" id="snapshot-modal">
         <div class="modal-header dossier-header">
             <div class="dossier-header-left">
                 <span class="dossier-category-tag"><i class="fa-solid fa-shield-cat"></i> PERIMETER SURVEILLANCE // FULL INSPECTION DOSSIER</span>
@@ -72,11 +107,14 @@
             </div>
             <div class="dossier-header-actions">
                 <span class="dossier-node-pill" id="dossier-node-pill"><i class="fa-solid fa-tower-broadcast"></i> NODE-01</span>
+                <span class="dossier-auto-pill" id="dossier-auto-pill" title="Automatic Alert: System Generated">
+                    <i class="fa-solid fa-robot"></i> <span id="dossier-auto-status">AUTO ALERT: DISPATCHED</span>
+                </span>
                 <a href="/" class="btn btn-outline btn-sm" id="btn-inspect-view-map" title="View location on tactical map">
                     <i class="fa-solid fa-map-location-dot"></i> Map
                 </a>
-                <button class="btn btn-primary btn-sm" id="btn-inspect-dispatch-sms" title="Trigger SMS broadcast">
-                    <i class="fa-solid fa-paper-plane"></i> Dispatch Alert
+                <button class="btn btn-warning btn-sm btn-manual-alert" id="btn-inspect-dispatch-sms" title="Manually Dispatch Emergency SMS Broadcast (Forest Officer Override)">
+                    <i class="fa-solid fa-paper-plane"></i> <span id="btn-manual-alert-text">MANUAL ALERT</span>
                 </button>
                 <button class="modal-close-btn" id="btn-close-snapshot" title="Close Dossier (Esc)">
                     <i class="fa-solid fa-xmark"></i> <span>CLOSE</span>

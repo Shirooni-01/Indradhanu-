@@ -142,8 +142,8 @@ function initTacticalMap() {
                 <span>Battery: <b>${st.battery}% Solar</b></span><br>
                 <span>Heading: <b>${st.heading}°</b></span><br>
                 <div style="margin-top:8px;">
-                    <button onclick="window.switchMapStation('${code}')" style="background:#0f172a; color:#fff; border:1px solid #38bdf8; padding:4px 8px; font-size:10px; cursor:pointer; border-radius:2px; width:100%; font-family:'JetBrains Mono',monospace;">
-                        <i class="fa-solid fa-crosshairs"></i> Select Station & Aim Radar
+                    <button onclick="window.switchMapStation('${code}'); if(typeof window.openStationPanel==='function') window.openStationPanel();" style="background:#0f172a; color:#fff; border:1px solid #38bdf8; padding:4px 8px; font-size:10px; cursor:pointer; border-radius:2px; width:100%; font-family:'JetBrains Mono',monospace;">
+                        <i class="fa-solid fa-crosshairs"></i> Select Station &amp; Aim Radar
                     </button>
                 </div>
             </div>
@@ -151,6 +151,9 @@ function initTacticalMap() {
 
         marker.on('click', () => {
             switchActiveStation(code);
+            if (typeof window.openStationPanel === 'function') {
+                window.openStationPanel();
+            }
         });
 
         stationMarkers[code] = marker;
@@ -276,6 +279,9 @@ function switchActiveStation(nodeCode) {
     if (typeof window.onStationChanged === 'function') {
         window.onStationChanged(nodeCode);
     }
+    if (typeof window.openStationPanel === 'function') {
+        window.openStationPanel();
+    }
 }
 
 /**
@@ -342,3 +348,8 @@ window.addMapThreat = addThreatMarker;
 window.initTacticalMap = initTacticalMap;
 window.switchMapStation = switchActiveStation;
 window.CAMERA_STATIONS = CAMERA_STATIONS;
+window.invalidateMapSize = function() {
+    if (map) {
+        map.invalidateSize();
+    }
+};

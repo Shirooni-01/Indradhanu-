@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Villager & Authority Directory | Project Indradhanu{% endblock %}
+{% block title %}Villager &amp; Authority Directory | Project Indradhanu{% endblock %}
 
 {% block content %}
 <div class="page-container">
     <div class="page-header-row">
         <div class="page-title-block">
-            <h2><i class="fa-solid fa-address-book"></i> Villager & Forest Authority Directory</h2>
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-address-book"></i> COMMUNITY EARLY WARNING NETWORK</span>
+                <h2><i class="fa-solid fa-address-book"></i> Villager &amp; Forest Authority Directory</h2>
+            </div>
             <p class="page-subtitle">Registered community members, Sarpanches, and Forest Rangers who receive instant SMS early warnings.</p>
         </div>
         <div class="page-header-actions">
@@ -112,10 +115,34 @@
                         <option value="forest_ranger">Forest Ranger / Officer</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center;">
-                    <i class="fa-solid fa-check"></i> Save & Register Contact
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center; width: 100%;">
+                    <i class="fa-solid fa-check"></i> Save &amp; Register Contact
                 </button>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIRM DELETE VILLAGE / CONTACT -->
+<div class="modal-backdrop hidden" id="modal-delete-confirm">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3 style="color: var(--color-ink);"><i class="fa-solid fa-triangle-exclamation text-alert"></i> Confirm Deletion</h3>
+            <button type="button" class="modal-close-btn" id="btn-close-delete-confirm" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="font-size: 14px; color: var(--color-ink); margin-bottom: 8px; font-weight: 500;" id="delete-confirm-prompt">
+                Are you sure you want to delete this village?
+            </p>
+            <p style="font-size: 11px; color: var(--color-muted); font-family: var(--font-mono); margin-bottom: 20px;" id="delete-confirm-sub">
+                This record will be removed from the village emergency SMS directory.
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-delete">CANCEL</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">
+                    <i class="fa-solid fa-trash-can"></i> DELETE
+                </button>
+            </div>
         </div>
     </div>
 </div>

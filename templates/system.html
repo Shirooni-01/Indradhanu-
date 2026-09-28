@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}System Health & Hardware Diagnostics | Project Indradhanu{% endblock %}
+{% block title %}System Health &amp; Hardware Diagnostics | Project Indradhanu{% endblock %}
 
 {% block content %}
 <div class="page-container">
     <div class="page-header-row">
         <div class="page-title-block">
-            <h2><i class="fa-solid fa-microchip"></i> System Health & Edge Node Diagnostics</h2>
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-microchip"></i> HARDWARE TELEMETRY &amp; SYNC ENGINE</span>
+                <h2><i class="fa-solid fa-microchip"></i> System Health &amp; Edge Node Diagnostics</h2>
+            </div>
             <p class="page-subtitle">Hardware telemetry, motion sleep/wake states, power diagnostics, and SQLite offline fallback sync engine.</p>
         </div>
         <div class="page-header-actions">
@@ -34,14 +37,14 @@
             <div class="diag-progress-wrap">
                 <div class="diag-prog-label">
                     <span>CPU Load</span>
-                    <span id="sys-cpu-val">14% (Idle Standby)</span>
+                    <span id="sys-cpu-val" class="font-mono">14% (Idle Standby)</span>
                 </div>
                 <div class="progress-bar"><div class="progress-fill" style="width: 14%;"></div></div>
             </div>
             <div class="diag-progress-wrap">
                 <div class="diag-prog-label">
                     <span>RAM Usage (Model pre-warmed)</span>
-                    <span>1.2 GB / 4.0 GB</span>
+                    <span class="font-mono">1.2 GB / 4.0 GB</span>
                 </div>
                 <div class="progress-bar"><div class="progress-fill fill-cyan" style="width: 30%;"></div></div>
             </div>
@@ -62,11 +65,11 @@
             <div class="diag-stat-list">
                 <div class="diag-stat-item">
                     <span>Wake Latency:</span>
-                    <strong class="text-success">< 200 ms (Instant)</strong>
+                    <strong class="text-success font-mono">&lt; 200 ms (Instant)</strong>
                 </div>
                 <div class="diag-stat-item">
                     <span>Model State:</span>
-                    <strong>Pre-loaded in RAM (Warm)</strong>
+                    <strong class="text-ink">Pre-loaded in RAM (Warm)</strong>
                 </div>
                 <div class="diag-stat-item">
                     <span>Power Mode:</span>
@@ -83,22 +86,22 @@
             </div>
             <div class="diag-metric-row">
                 <div class="diag-metric">
-                    <span class="metric-val text-accent">88%</span>
+                    <span class="metric-val text-accent font-mono">88%</span>
                     <span class="metric-sub">12V 20Ah LiFePO4 Battery Pack</span>
                 </div>
             </div>
             <div class="diag-stat-list">
                 <div class="diag-stat-item">
                     <span>Solar Input:</span>
-                    <strong>18.4V / 1.4A (25W Panel)</strong>
+                    <strong class="font-mono">18.4V / 1.4A (25W Panel)</strong>
                 </div>
                 <div class="diag-stat-item">
                     <span>Current Power Draw:</span>
-                    <strong class="text-success">2.8 Watts (Idle)</strong>
+                    <strong class="text-success font-mono">2.8 Watts (Idle)</strong>
                 </div>
                 <div class="diag-stat-item">
                     <span>Estimated Autonomy:</span>
-                    <strong>72 Hours (Zero Sunlight)</strong>
+                    <strong class="font-mono">72 Hours (Zero Sunlight)</strong>
                 </div>
             </div>
         </div>
@@ -111,7 +114,7 @@
             </div>
             <div class="diag-metric-row">
                 <div class="diag-metric">
-                    <span class="metric-val" id="diag-queue-val">0 Alerts Queued</span>
+                    <span class="metric-val font-mono" id="diag-queue-val">0 Alerts Queued</span>
                     <span class="metric-sub">Local Transactional Safety (Zero Alert Loss)</span>
                 </div>
             </div>
@@ -122,7 +125,7 @@
                 </div>
                 <div class="diag-stat-item">
                     <span>Storage Engine:</span>
-                    <strong>SQLite 3 (`indradhanu.db`)</strong>
+                    <strong class="font-mono">SQLite 3 (indradhanu.db)</strong>
                 </div>
                 <div class="diag-stat-item">
                     <span>Auto-Sync Frequency:</span>
@@ -139,7 +142,7 @@
             <div>
                 <h4><i class="fa-solid fa-tower-broadcast"></i> Planted Camera Nodes Fleet Health</h4>
                 <p style="font-size: 11px; font-family: var(--font-mono); color: var(--color-muted); letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">
-                    Visual Telemetry HUD: Radial health meters, pan-tilt compass dials, optical array heatmaps & power reserves
+                    Visual Telemetry HUD: Radial health meters, pan-tilt compass dials, optical array heatmaps &amp; power reserves
                 </p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
@@ -205,16 +208,16 @@
                         <span class="hud-inst-title"><i class="fa-solid fa-compass"></i> Pan-Tilt Bearing</span>
                         <div class="compass-dial-wrap">
                             <svg class="compass-dial-svg" viewBox="0 0 56 56">
-                                <circle cx="28" cy="28" r="26" fill="none" stroke="#262626" stroke-width="1.5"></circle>
-                                <circle cx="28" cy="28" r="16" fill="none" stroke="#1a1a1a" stroke-width="1"></circle>
+                                <circle cx="28" cy="28" r="26" fill="none" stroke="#24332B" stroke-width="1.5"></circle>
+                                <circle cx="28" cy="28" r="16" fill="none" stroke="#16211C" stroke-width="1"></circle>
                                 <text x="28" y="10" fill="#777" font-size="6" font-family="JetBrains Mono" text-anchor="middle">N</text>
                                 <text x="49" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">E</text>
                                 <text x="28" y="51" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">S</text>
                                 <text x="7" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">W</text>
                                 <!-- Rotating Needle & Sweep Wedge -->
                                 <g class="compass-needle-layer" style="transform: rotate({{ heading }}deg); transform-origin: 28px 28px;">
-                                    <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(195, 217, 243, 0.15)"></path>
-                                    <line x1="28" y1="28" x2="28" y2="4" stroke="#c3d9f3" stroke-width="2" stroke-linecap="round"></line>
+                                    <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(63, 166, 107, 0.2)"></path>
+                                    <line x1="28" y1="28" x2="28" y2="4" stroke="#3fa66b" stroke-width="2" stroke-linecap="round"></line>
                                     <circle cx="28" cy="28" r="2.5" fill="#ffffff"></circle>
                                 </g>
                             </svg>
@@ -303,12 +306,12 @@
             <table class="contacts-table" id="planted-cameras-table">
                 <thead>
                     <tr>
-                        <th>Node & Tower</th>
-                        <th>Sector & GPS</th>
+                        <th>Node &amp; Tower</th>
+                        <th>Sector &amp; GPS</th>
                         <th>Thermal Sensor</th>
                         <th>Pan-Tilt Rotator</th>
                         <th>PIR Wake Loop</th>
-                        <th>Battery & Solar</th>
+                        <th>Battery &amp; Solar</th>
                         <th>RF Link</th>
                         <th>Health State</th>
                         <th style="text-align: right;">Diagnostics</th>
@@ -347,7 +350,7 @@
                         <td class="font-mono">Today, 21:41:33</td>
                         <td>SMS Dispatcher</td>
                         <td><span class="badge-success">SUCCESS</span></td>
-                        <td>Broadcasted 42 villager SMS alerts & forest ranger dispatch.</td>
+                        <td>Broadcasted 42 villager SMS alerts &amp; forest ranger dispatch.</td>
                     </tr>
                     <tr>
                         <td class="font-mono">Today, 21:41:31</td>
@@ -375,16 +378,21 @@
 
 <!-- MODAL: CAMERA NODE HEALTH DIAGNOSTICS -->
 <div class="modal-backdrop hidden" id="modal-node-health">
-    <div class="modal-card modal-md-card">
-        <div class="modal-header">
-            <h3 id="modal-health-title"><i class="fa-solid fa-stethoscope"></i> Camera Node Health Diagnostics</h3>
-            <button class="modal-close-btn" id="btn-close-node-health"><i class="fa-solid fa-xmark"></i></button>
+    <div class="modal-card modal-diag-card">
+        <div class="modal-header diag-modal-header">
+            <div class="diag-header-left">
+                <span class="sub-badge"><i class="fa-solid fa-stethoscope"></i> HARDWARE INTERROGATION // EDGE BUS TELEMETRY</span>
+                <h3 id="modal-health-title"><i class="fa-solid fa-microchip"></i> DEEP DIAGNOSIS: HARDWARE BUS</h3>
+            </div>
+            <button class="modal-close-btn" id="btn-close-node-health" title="Close Diagnostics (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
-        <div class="modal-body" id="node-health-modal-body">
+        <div class="modal-body diag-modal-body" id="node-health-modal-body">
             <!-- Dynamic Telemetry Injected via JS -->
             <div style="text-align: center; padding: 40px; color: var(--color-muted); font-family: var(--font-mono); letter-spacing: 1px;">
                 <i class="fa-solid fa-spinner fa-spin" style="font-size: 24px; margin-bottom: 12px; color: var(--color-primary);"></i><br>
-                RUNNING EDGE HARDWARE DIAGNOSTICS...
+                INTERROGATING EDGE HARDWARE BUS...
             </div>
         </div>
     </div>
@@ -394,7 +402,7 @@
 {% block extra_scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        if (window.initSystemHealthView) {
+        if (window.initSystemHealthView && !window.systemHealthInitialized) {
             window.initSystemHealthView();
         }
 

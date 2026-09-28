@@ -3,48 +3,157 @@
 {% block title %}Tactical GIS Map | Project Indradhanu{% endblock %}
 
 {% block content %}
-<div class="map-wrapper">
-    <div id="gis-map"></div>
-
-    <!-- Floating Map Controls -->
-    <div class="map-floating-controls">
-        <span class="fringe-badge"><i class="fa-solid fa-mountain-sun"></i> Tadoba-Andhari Buffer Zone</span>
-        <button class="map-ctrl-btn active" id="btn-layer-sat">Satellite</button>
-        <button class="map-ctrl-btn" id="btn-layer-osm">Topo Map</button>
-        <button class="map-ctrl-btn" id="btn-recenter"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
-    </div>
-
-    <!-- Map Legend -->
-    <div class="map-legend">
-        <div class="legend-title">Perimeter Legend</div>
-        <div class="legend-row">
-            <span class="legend-color legend-forest"></span> Forest Boundary
+<div class="dashboard-container">
+    <!-- Calm Baseline Operational Ribbon -->
+    <div class="operational-ribbon" id="operational-ribbon">
+        <div class="ribbon-left">
+            <span class="pulse-dot"></span>
+            <span class="ribbon-state-title">SYSTEM STATE: ALL SECTORS MONITORED &amp; OPERATIONAL</span>
+            <span class="ribbon-divider">/</span>
+            <span class="ribbon-metric"><i class="fa-solid fa-tower-broadcast"></i> 3 CAMERA STATIONS SYNCHRONIZED</span>
+            <span class="ribbon-divider hidden-md">/</span>
+            <span class="ribbon-metric hidden-md"><i class="fa-solid fa-shield-halved"></i> BUFFER ZONE: ACTIVE (TADOBA-ANDHARI FRINGE)</span>
         </div>
-        <div class="legend-row">
-            <span class="legend-color legend-village"></span> Village Buffer Zone (650m)
-        </div>
-        <div class="legend-row">
-            <span class="legend-color legend-tower"></span> Pi 4 Camera Tower
-        </div>
-        <div class="legend-row">
-            <span class="legend-color legend-predator"></span> Predator Sighting
+        <div class="ribbon-right">
+            <span class="ribbon-gps font-mono"><i class="fa-solid fa-location-crosshairs"></i> PERIMETER: 21.1441° N, 79.0865° E</span>
         </div>
     </div>
 
-    <!-- Real-Time Threat Alert Banner -->
+    <!-- Real-Time Threat Alert Banner (Controlled Urgency on Wildlife Detection) -->
     <div class="threat-alert-banner hidden" id="threat-banner">
         <div class="threat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
         <div class="threat-details">
             <h4 id="threat-title">CRITICAL ALERT: TIGER DETECTED</h4>
-            <p id="threat-desc">Location: 21.1441° N, 79.0865° E | Distance: ~280m from Rampur village | SMS dispatched to 42 villagers & Forest Ranger.</p>
+            <p id="threat-desc">Location: 21.1441° N, 79.0865° E | Distance: ~280m from Rampur village | SMS dispatched to 42 villagers &amp; Forest Ranger.</p>
         </div>
-        <button class="threat-dismiss" id="btn-dismiss-threat"><i class="fa-solid fa-xmark"></i></button>
+        <div class="threat-banner-actions">
+            <button class="btn btn-sm btn-primary" id="btn-threat-inspect" title="Inspect Thermal Snapshot Dossier">
+                <i class="fa-solid fa-eye"></i> <span>Inspect Thermal</span>
+            </button>
+            <button class="threat-dismiss" id="btn-dismiss-threat" title="Dismiss Alert">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Operational Grid: Tactical Leaflet Map (Col 8) + Sidebar Telemetry (Col 4) -->
+    <div class="dashboard-grid">
+        <!-- LEFT: GIS MAP & SPATIAL COMMAND -->
+        <div class="map-column">
+            <div class="map-wrapper">
+                <div id="gis-map"></div>
+
+                <!-- Floating Map Controls -->
+                <div class="map-floating-controls">
+                    <span class="fringe-badge"><i class="fa-solid fa-tree"></i> Tadoba-Andhari Buffer Zone</span>
+                    <button class="map-ctrl-btn active" id="btn-layer-sat"><i class="fa-solid fa-satellite"></i> Satellite</button>
+                    <button class="map-ctrl-btn" id="btn-layer-osm"><i class="fa-solid fa-layer-group"></i> Topo Map</button>
+                    <button class="map-ctrl-btn" id="btn-recenter"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
+                </div>
+
+                <!-- Map Legend -->
+                <div class="map-legend">
+                    <div class="legend-title">Perimeter GIS Legend</div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-forest"></span> Forest Fringe Boundary
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-village"></span> Village Buffer Zone (650m)
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-tower"></span> Pi 4 Camera Tower
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-predator"></span> Predator Sighting (Apex Alert)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: SELECTED NODE TELEMETRY & LIVE WILDLIFE DETECTION STREAM -->
+        <aside class="dashboard-sidebar">
+            <!-- Selected Station Telemetry Card -->
+            <div class="dash-card station-panel" id="selected-station-panel">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-tower-broadcast text-primary"></i>
+                        <div>
+                            <h3 id="station-panel-title">Station NODE-01</h3>
+                            <span class="card-header-sub" id="station-panel-sector">Tadoba North Perimeter Tower</span>
+                        </div>
+                    </div>
+                    <div class="station-panel-header-actions">
+                        <span class="status-badge-online" id="station-panel-status">ONLINE ACTIVE</span>
+                        <button type="button" class="station-panel-close-btn" id="btn-close-station-panel" title="Close Panel &amp; Expand Map" aria-label="Close Station Panel">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="dash-card-body">
+                    <!-- Energy & Solar Telemetry -->
+                    <div class="telemetry-bar-card">
+                        <div class="telemetry-bar-row">
+                            <span class="telemetry-bar-label"><i class="fa-solid fa-bolt text-accent"></i> LiFePO4 Energy</span>
+                            <span class="telemetry-bar-val font-mono" id="station-panel-battery-val">88% (13.6V)</span>
+                        </div>
+                        <div class="battery-meter-bars" id="station-panel-battery-bars">
+                            <div class="bar-segment fill"></div>
+                            <div class="bar-segment fill"></div>
+                            <div class="bar-segment fill"></div>
+                            <div class="bar-segment fill"></div>
+                            <div class="bar-segment empty"></div>
+                        </div>
+                        <div class="telemetry-bar-sub font-mono">
+                            <span>Solar Input: +18.2V (Charging)</span>
+                            <span>Autonomy: 72 hrs</span>
+                        </div>
+                    </div>
+
+                    <!-- Station Sensor Matrix -->
+                    <div class="station-meta-grid">
+                        <div class="meta-box">
+                            <span class="meta-box-label">PRIMARY LINK</span>
+                            <span class="meta-box-val text-success"><i class="fa-solid fa-tower-cell"></i> 4G LTE (&lt; 2s)</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">ROTATOR BEARING</span>
+                            <span class="meta-box-val font-mono" id="station-panel-bearing"><i class="fa-solid fa-compass"></i> 145° Azimuth</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">PIR MOTION TRIGGER</span>
+                            <span class="meta-box-val text-warning"><i class="fa-solid fa-person-running"></i> Armed (GPIO 18)</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">THERMAL CORE TEMP</span>
+                            <span class="meta-box-val font-mono text-ink"><i class="fa-solid fa-temperature-half"></i> 31.4°C Nominal</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Wildlife Detection Stream -->
+            <div class="dash-card feed-panel">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-paw text-warning"></i>
+                        <div>
+                            <h3>Live Wildlife Detection Feed</h3>
+                            <span class="card-header-sub">Verified Apex Carnivore Encounters</span>
+                        </div>
+                    </div>
+                    <a href="/history" class="dash-link-more" title="View Wildlife Sightings">Sightings <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="dash-card-body feed-scroll" id="dashboard-recent-feed">
+                    <!-- Populated dynamically via JS with recent detections -->
+                </div>
+            </div>
+        </aside>
     </div>
 </div>
 
 <!-- FULL PAGE MODAL: SIGHTING INSPECTION & THERMAL TELEMETRY DOSSIER -->
 <div class="modal-backdrop hidden" id="modal-snapshot">
-    <div class="modal-card modal-snapshot-card modal-fullscreen-dossier">
+    <div class="modal-card modal-snapshot-card modal-fullscreen-dossier" id="snapshot-modal">
         <div class="modal-header dossier-header">
             <div class="dossier-header-left">
                 <span class="dossier-category-tag"><i class="fa-solid fa-shield-cat"></i> PERIMETER SURVEILLANCE // FULL INSPECTION DOSSIER</span>
@@ -52,11 +161,14 @@
             </div>
             <div class="dossier-header-actions">
                 <span class="dossier-node-pill" id="dossier-node-pill"><i class="fa-solid fa-tower-broadcast"></i> NODE-01</span>
-                <a href="/history" class="btn btn-outline btn-sm" id="btn-inspect-view-archive" title="View all historical sightings">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Archive
+                <span class="dossier-auto-pill" id="dossier-auto-pill" title="Automatic Alert: System Generated">
+                    <i class="fa-solid fa-robot"></i> <span id="dossier-auto-status">AUTO ALERT: DISPATCHED</span>
+                </span>
+                <a href="/history" class="btn btn-outline btn-sm" id="btn-inspect-view-archive" title="View Wildlife Sightings">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Sightings
                 </a>
-                <button class="btn btn-primary btn-sm" id="btn-inspect-dispatch-sms" title="Trigger SMS broadcast">
-                    <i class="fa-solid fa-paper-plane"></i> Dispatch Alert
+                <button class="btn btn-warning btn-sm btn-manual-alert" id="btn-inspect-dispatch-sms" title="Manually Dispatch Emergency SMS Broadcast (Forest Officer Override)">
+                    <i class="fa-solid fa-paper-plane"></i> <span id="btn-manual-alert-text">MANUAL ALERT</span>
                 </button>
                 <button class="modal-close-btn" id="btn-close-snapshot" title="Close Dossier (Esc)">
                     <i class="fa-solid fa-xmark"></i> <span>CLOSE</span>

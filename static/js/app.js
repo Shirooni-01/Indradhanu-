@@ -113,7 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initOfflineSimulation();
     initDetectionSimulator();
     initStationSelector();
+    initStationPanel();
     initModals();
+    initDeleteConfirmation();
 
     // Fetch permanent history from SQLite Database!
     loadDetectionsFromDB();
@@ -121,6 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('contacts-page-table-body')) {
         renderContactsFullTable();
         initContactsSearch();
+    }
+
+    if (document.getElementById('system-cameras-hud-grid')) {
+        initSystemHealthView();
     }
 });
 
@@ -181,6 +187,9 @@ function updateDetectionsViews() {
         window.initTacticalMap();
         renderInitialThreatMarkers();
     }
+
+    // Render live feed on dashboard
+    renderDashboardFeed();
 
     // If on History page
     if (document.getElementById('sightings-table-body') || document.getElementById('history-cards-container')) {
@@ -268,6 +277,7 @@ const SPECIES_POOL = [
 ];
 
 let simCounter = 0;
+let latestThreatSighting = null;
 
 function initDetectionSimulator() {
     document.getElementById('btn-sim-detection')?.addEventListener('click', triggerSimulatedDetection);
@@ -283,7 +293,53 @@ function initDetectionSimulator() {
     document.getElementById('btn-dismiss-threat')?.addEventListener('click', () => {
         document.getElementById('threat-banner').classList.add('hidden');
     });
+
+    // Inspect active threat modal button
+    document.getElementById('btn-threat-inspect')?.addEventListener('click', () => {
+        if (latestThreatSighting) {
+            openSnapshotModal(latestThreatSighting);
+        } else if (sightingsData.length > 0) {
+            openSnapshotModal(sightingsData[0]);
+        }
+    });
 }
+
+function initStationPanel() {
+    const closeBtn = document.getElementById('btn-close-station-panel');
+    closeBtn?.addEventListener('click', () => {
+        closeStationPanel();
+    });
+}
+
+function closeStationPanel() {
+    const grid = document.querySelector('.dashboard-grid');
+    const sidebar = document.querySelector('.dashboard-sidebar');
+    if (grid) grid.classList.add('panel-closed');
+    if (sidebar) sidebar.classList.add('panel-hidden');
+    triggerMapResize();
+}
+
+function openStationPanel() {
+    const grid = document.querySelector('.dashboard-grid');
+    const sidebar = document.querySelector('.dashboard-sidebar');
+    if (grid) grid.classList.remove('panel-closed');
+    if (sidebar) sidebar.classList.remove('panel-hidden');
+    triggerMapResize();
+}
+
+function triggerMapResize() {
+    if (window.invalidateMapSize) {
+        window.invalidateMapSize();
+    }
+    setTimeout(() => {
+        if (window.invalidateMapSize) window.invalidateMapSize();
+    }, 80);
+    setTimeout(() => {
+        if (window.invalidateMapSize) window.invalidateMapSize();
+    }, 260);
+}
+window.openStationPanel = openStationPanel;
+window.closeStationPanel = closeStationPanel;
 
 function initStationSelector() {
     const selector = document.getElementById('camera-node-selector');
@@ -295,6 +351,7 @@ function initStationSelector() {
             window.switchMapStation(val);
         }
         updateStationTelemetryUI(val);
+        openStationPanel();
     });
 }
 
@@ -302,23 +359,82 @@ function updateStationTelemetryUI(nodeCode) {
     const batteryEl = document.getElementById('telemetry-battery');
     const pirEl = document.getElementById('pir-status-text');
 
+    const panelTitle = document.getElementById('station-panel-title');
+    const panelSector = document.getElementById('station-panel-sector');
+    const panelStatus = document.getElementById('station-panel-status');
+    const panelBattVal = document.getElementById('station-panel-battery-val');
+    const panelBattBars = document.getElementById('station-panel-battery-bars');
+    const panelBearing = document.getElementById('station-panel-bearing');
+
+    let batt = 88;
+    let heading = 145;
+    let title = 'Station NODE-01';
+    let sector = 'Tadoba North Perimeter Tower';
+    let statusText = 'ONLINE ACTIVE';
+    let statusClass = 'status-badge-online';
+
     if (nodeCode === 'ALL') {
         if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 3 NODES ACTIVE';
         if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> MULTI-PERIMETER';
+
+        title = 'ALL STATIONS';
+        sector = 'Multi-Station Perimeter Network (3 Towers)';
+        batt = 87;
+        heading = 145;
+        statusText = '3 STATIONS ACTIVE';
     } else if (nodeCode === 'NODE-02') {
         if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 94% SOLAR';
         if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> STANDBY (PIR WAKE)';
+
+        title = 'Station NODE-02';
+        sector = 'Rampur East Buffer Tower';
+        batt = 94;
+        heading = 210;
+        statusText = 'STANDBY (PIR ARMED)';
+        statusClass = 'badge-active';
     } else if (nodeCode === 'NODE-03') {
         if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 79% SOLAR';
         if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> STANDBY (PIR WAKE)';
+
+        title = 'Station NODE-03';
+        sector = 'Shivpuri West Fringe Tower';
+        batt = 79;
+        heading = 90;
+        statusText = 'STANDBY (PIR ARMED)';
+        statusClass = 'badge-active';
     } else {
         if (batteryEl) batteryEl.innerHTML = '<i class="fa-solid fa-bolt"></i> 88% SOLAR';
         if (pirEl) pirEl.innerHTML = '<i class="fa-solid fa-shield"></i> ACTIVE (PIR WAKE)';
+
+        title = 'Station NODE-01';
+        sector = 'Tadoba North Perimeter Tower';
+        batt = 88;
+        heading = 145;
+        statusText = 'ONLINE ACTIVE';
+        statusClass = 'status-badge-online';
+    }
+
+    if (panelTitle) panelTitle.textContent = title;
+    if (panelSector) panelSector.textContent = sector;
+    if (panelStatus) {
+        panelStatus.className = statusClass;
+        panelStatus.textContent = statusText;
+    }
+    if (panelBattVal) panelBattVal.textContent = `${batt}% (12.6V)`;
+    if (panelBearing) panelBearing.innerHTML = `<i class="fa-solid fa-compass"></i> ${heading}° Azimuth`;
+    if (panelBattBars) {
+        const fullSegments = Math.round(batt / 20);
+        let barsHtml = '';
+        for (let i = 0; i < 5; i++) {
+            barsHtml += `<div class="bar-segment ${i < fullSegments ? 'fill' : 'empty'}"></div>`;
+        }
+        panelBattBars.innerHTML = barsHtml;
     }
 }
 
 window.onStationChanged = function(nodeCode) {
     updateStationTelemetryUI(nodeCode);
+    openStationPanel();
 };
 
 function triggerSimulatedDetection() {
@@ -449,6 +565,11 @@ function handleNewDetectionUI(newSighting) {
         }
     }
 
+    latestThreatSighting = newSighting;
+
+    // Update live feed on dashboard
+    renderDashboardFeed();
+
     // If on History page -> update active view
     if (document.getElementById('sightings-table-body') || document.getElementById('history-cards-container')) {
         renderHistoryData();
@@ -467,6 +588,62 @@ function handleNewDetectionUI(newSighting) {
 function renderInitialThreatMarkers() {
     sightingsData.forEach(s => {
         if (window.addMapThreat) window.addMapThreat(s);
+    });
+}
+
+function renderDashboardFeed() {
+    const feedContainer = document.getElementById('dashboard-recent-feed');
+    if (!feedContainer) return;
+
+    feedContainer.innerHTML = '';
+    const recent = sightingsData.slice(0, 4);
+
+    if (recent.length === 0) {
+        feedContainer.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: var(--color-muted); font-size: 11px; font-family: var(--font-mono);">
+                <i class="fa-solid fa-shield-cat" style="font-size: 20px; margin-bottom: 6px; display: block; color: var(--color-primary-dim);"></i>
+                PERIMETER CLEAR · NO RECENT ENCOUNTERS
+            </div>
+        `;
+        return;
+    }
+
+    recent.forEach(s => {
+        const item = document.createElement('div');
+        const isCritical = s.threat_level === 'CRITICAL';
+        item.className = `feed-item ${isCritical ? 'critical' : 'warning'}`;
+
+        const isQueued = s.sms_status === 'QUEUED_OFFLINE';
+        const badgeClass = isCritical ? 'badge-critical' : 'badge-high';
+
+        item.innerHTML = `
+            <div class="feed-item-top">
+                <div class="feed-species-wrap">
+                    <span class="feed-species-name">${s.species}</span>
+                    <span class="feed-scientific">${s.scientific}</span>
+                </div>
+                <span class="${badgeClass}" style="padding: 2px 6px; font-size: 9px; font-family: var(--font-mono);">${s.threat_level}</span>
+            </div>
+            <div class="feed-item-meta">
+                <span><i class="fa-solid fa-location-crosshairs text-info"></i> ${s.lat.toFixed(4)}°N, ${s.lon.toFixed(4)}°E (~${s.distance_meters}m)</span>
+                <span><i class="fa-solid fa-brain text-success"></i> ${s.confidence}% Conf.</span>
+                <span><i class="fa-regular fa-clock"></i> ${s.timestamp}</span>
+            </div>
+            <div class="feed-item-footer">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span class="${s.is_delayed ? 'badge-high' : 'badge-online'}" style="font-size: 8.5px; padding: 1px 5px; border-radius: 2px;">
+                        <i class="fa-solid ${s.is_delayed ? 'fa-clock-rotate-left' : 'fa-bolt'}"></i> ${s.latency_badge || 'Real-time (< 2s)'}
+                    </span>
+                    <span style="color:${isQueued ? '#f59e0b' : '#10b981'}; font-size: 9.5px; font-family: var(--font-mono); font-weight: 600;">
+                        <i class="fa-solid ${isQueued ? 'fa-database' : 'fa-check-double'}"></i> ${isQueued ? 'Queued' : 'SMS Sent'}
+                    </span>
+                </div>
+                <button class="btn-feed-inspect" onclick="openSnapshotModalById(${s.id})">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i> Inspect
+                </button>
+            </div>
+        `;
+        feedContainer.appendChild(item);
     });
 }
 
@@ -520,6 +697,23 @@ function initHistoryFilterPills() {
 }
 
 function renderHistoryData() {
+    // Update KPI summary deck
+    const statTotal = document.getElementById('stat-total-sightings');
+    const statCrit = document.getElementById('stat-critical-sightings');
+    const statDel = document.getElementById('stat-delayed-sightings');
+    const statCov = document.getElementById('stat-coverage-nodes');
+
+    if (statTotal) statTotal.textContent = sightingsData.length;
+    if (statCrit) {
+        const critCount = sightingsData.filter(s => s.threat_level === 'CRITICAL').length;
+        statCrit.textContent = `${critCount} CRITICAL`;
+    }
+    if (statDel) {
+        const delCount = sightingsData.filter(s => s.is_delayed).length;
+        statDel.textContent = `${delCount} Delayed`;
+    }
+    if (statCov) statCov.textContent = '3 / 3 Nodes';
+
     if (currentHistoryViewMode === 'list') {
         renderHistoryTableList();
     } else {
@@ -686,6 +880,8 @@ function renderContactsFullTable(searchQuery = '') {
 
     const countEl = document.getElementById('stat-total-contacts');
     if (countEl) countEl.textContent = contactsData.length;
+    const queueEl = document.getElementById('contacts-queue-count');
+    if (queueEl) queueEl.textContent = offlineQueueCount;
 
     filtered.forEach(c => {
         const tr = document.createElement('tr');
@@ -709,10 +905,65 @@ function renderContactsFullTable(searchQuery = '') {
     });
 }
 
+let pendingDeleteContactId = null;
+
 window.deleteContactRecord = function(id) {
-    contactsData = contactsData.filter(c => c.id !== id);
-    renderContactsFullTable();
+    pendingDeleteContactId = id;
+    const modal = document.getElementById('modal-delete-confirm');
+    const promptEl = document.getElementById('delete-confirm-prompt');
+    const subEl = document.getElementById('delete-confirm-sub');
+    const contact = contactsData.find(c => c.id === id);
+
+    if (promptEl) {
+        promptEl.textContent = 'Are you sure you want to delete this village?';
+    }
+    if (subEl && contact) {
+        subEl.textContent = `Target: ${contact.name} (${contact.village} • ${contact.phone}) will be removed from directory.`;
+    }
+
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
 };
+
+function initDeleteConfirmation() {
+    const modal = document.getElementById('modal-delete-confirm');
+    const btnCancel = document.getElementById('btn-cancel-delete');
+    const btnClose = document.getElementById('btn-close-delete-confirm');
+    const btnConfirm = document.getElementById('btn-confirm-delete');
+
+    function dismissDeleteModal() {
+        pendingDeleteContactId = null;
+        if (modal) modal.classList.add('hidden');
+    }
+
+    btnCancel?.addEventListener('click', dismissDeleteModal);
+    btnClose?.addEventListener('click', dismissDeleteModal);
+
+    btnConfirm?.addEventListener('click', () => {
+        if (pendingDeleteContactId !== null) {
+            const idToDelete = pendingDeleteContactId;
+            contactsData = contactsData.filter(c => c.id !== idToDelete);
+            renderContactsFullTable();
+            showTemporaryNotification('Village contact removed from directory.', 'warning');
+            dismissDeleteModal();
+        }
+    });
+
+    // Clicking outside modal backdrop does NOT delete
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            dismissDeleteModal();
+        }
+    });
+
+    // Escape does NOT delete
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+            dismissDeleteModal();
+        }
+    });
+}
 
 /* ==========================================================================
    MODALS: SNAPSHOT VIEWER (FULL PAGE DOSSIER)
@@ -737,24 +988,34 @@ function formatOffsetReportedTime(detected) {
 }
 
 function initModals() {
-    const snapModal = document.getElementById('modal-snapshot');
+    const snapModal = document.getElementById('modal-snapshot') || document.getElementById('snapshot-modal');
+    const nodeHealthModal = document.getElementById('modal-node-health');
+    const addContactModal = document.getElementById('modal-add-contact');
     
-    // Close button
-    document.getElementById('btn-close-snapshot')?.addEventListener('click', () => {
+    // Close button for Snapshot
+    const closeBtn = document.getElementById('btn-close-snapshot') || document.getElementById('btn-close-modal');
+    closeBtn?.addEventListener('click', () => {
         snapModal?.classList.add('hidden');
+    });
+
+    // Close button for Node Health Diagnostics
+    document.getElementById('btn-close-node-health')?.addEventListener('click', () => {
+        nodeHealthModal?.classList.add('hidden');
     });
 
     // Backdrop click
     window.addEventListener('click', (e) => {
         if (e.target === snapModal) snapModal.classList.add('hidden');
-        const addModal = document.getElementById('modal-add-contact');
-        if (e.target === addModal) addModal.classList.add('hidden');
+        if (e.target === nodeHealthModal) nodeHealthModal.classList.add('hidden');
+        if (e.target === addContactModal) addContactModal.classList.add('hidden');
     });
 
     // Escape key
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && snapModal && !snapModal.classList.contains('hidden')) {
-            snapModal.classList.add('hidden');
+        if (e.key === 'Escape') {
+            if (snapModal && !snapModal.classList.contains('hidden')) snapModal.classList.add('hidden');
+            if (nodeHealthModal && !nodeHealthModal.classList.contains('hidden')) nodeHealthModal.classList.add('hidden');
+            if (addContactModal && !addContactModal.classList.contains('hidden')) addContactModal.classList.add('hidden');
         }
     });
 
@@ -779,15 +1040,47 @@ function initModals() {
         });
     });
 
-    // Dispatch SMS from Dossier
+    // Dispatch Manual Alert from Dossier
     document.getElementById('btn-inspect-dispatch-sms')?.addEventListener('click', () => {
-        const speciesName = currentInspectedSighting?.species || 'Predator';
-        showTemporaryNotification(`[GSM BROADCAST] Emergency SMS alert for ${speciesName} dispatched to 42 registered villagers & forest outpost.`, 'success');
+        triggerManualAlert();
     });
 }
 
+function triggerManualAlert() {
+    const speciesName = currentInspectedSighting?.species || 'Predator';
+    const nodeCode = currentInspectedSighting?.node_code || 'NODE-01';
+
+    // Show temporary toast notification
+    showTemporaryNotification(`[MANUAL ALERT DISPATCHED] Emergency broadcast initiated by Forest Officer for ${speciesName} (${nodeCode}) sent to 42 registered villagers & ranger team.`, 'warning');
+
+    // Update header button
+    const headerBtn = document.getElementById('btn-inspect-dispatch-sms');
+    const headerBtnText = document.getElementById('btn-manual-alert-text');
+    if (headerBtnText) {
+        headerBtnText.textContent = 'MANUAL ALERT SENT';
+    }
+    if (headerBtn) {
+        headerBtn.className = 'btn btn-outline btn-sm btn-manual-alert';
+    }
+
+    // Update card button and note
+    const cardBtn = document.getElementById('btn-card-manual-dispatch');
+    if (cardBtn) {
+        cardBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> SENT';
+        cardBtn.className = 'btn btn-outline btn-xs';
+        cardBtn.disabled = true;
+    }
+
+    const statusNote = document.getElementById('manual-status-note');
+    if (statusNote) {
+        statusNote.innerHTML = '<i class="fa-solid fa-circle-check text-success"></i> Dispatched by Forest Officer';
+        statusNote.className = 'manual-status-note text-success';
+    }
+}
+window.triggerManualAlert = triggerManualAlert;
+
 function openSnapshotModal(sighting) {
-    const modal = document.getElementById('modal-snapshot');
+    const modal = document.getElementById('modal-snapshot') || document.getElementById('snapshot-modal');
     if (!modal) return;
 
     currentInspectedSighting = sighting;
@@ -829,6 +1122,27 @@ function openSnapshotModal(sighting) {
         nodePill.innerHTML = `<i class="fa-solid fa-tower-broadcast"></i> ${nodeCode}`;
     }
 
+    // Automatic Alert Pill
+    const autoPill = document.getElementById('dossier-auto-pill');
+    const autoStatus = document.getElementById('dossier-auto-status');
+    if (autoStatus) {
+        autoStatus.textContent = isSmsDelivered ? 'AUTO ALERT: DISPATCHED' : 'AUTO ALERT: QUEUED';
+    }
+    if (autoPill) {
+        autoPill.classList.toggle('queued', !isSmsDelivered);
+    }
+
+    // Reset Manual Alert button in header
+    const manualBtn = document.getElementById('btn-inspect-dispatch-sms');
+    const manualBtnText = document.getElementById('btn-manual-alert-text');
+    if (manualBtnText) {
+        manualBtnText.textContent = 'MANUAL ALERT';
+    }
+    if (manualBtn) {
+        manualBtn.className = 'btn btn-warning btn-sm btn-manual-alert';
+        manualBtn.disabled = false;
+    }
+
     // Update Visual Column
     const img = document.getElementById('snapshot-modal-img');
     if (img) {
@@ -866,104 +1180,123 @@ function openSnapshotModal(sighting) {
         meta.innerHTML = `
             <!-- 1. TYPE OF ANIMAL -->
             <div class="dossier-card">
-                <label><i class="fa-solid fa-paw text-danger"></i> TYPE OF ANIMAL & SPECIES</label>
+                <label><i class="fa-solid fa-paw text-danger"></i> TYPE OF ANIMAL &amp; SPECIES</label>
                 <div class="card-value-primary">
-                    <span style="color:${isCritical ? '#ef4444' : '#f59e0b'}; font-size:15px;">${species}</span>
-                    <span class="${isCritical ? 'badge-critical' : 'badge-high'}" style="padding:2px 6px; font-size:9px;">${threatLevel}</span>
+                    <span style="color:${isCritical ? '#ef4444' : '#f59e0b'}; font-size:14px; font-weight:700;">${species}</span>
+                    <span class="${isCritical ? 'badge-critical' : 'badge-high'}" style="padding:2px 6px; font-size:8.5px;">${threatLevel}</span>
                 </div>
                 <div class="card-value-sub"><em>${scientific}</em></div>
-                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Classification: Apex Carnivore (Schedule I)</div>
+                <div class="card-value-sub" style="font-size:9px; color:var(--color-muted-soft);">Classification: Apex Carnivore (Schedule I)</div>
             </div>
 
             <!-- 2. AI CONFIDENCE RATE -->
             <div class="dossier-card">
                 <label><i class="fa-solid fa-brain text-success"></i> CONFIDENCE RATE</label>
                 <div class="card-value-primary">
-                    <span style="color:#10b981; font-size:15px;">${confidence}% Verified</span>
-                    <span style="font-size:9.5px; color:var(--color-muted);">YOLOv8 IR</span>
+                    <span style="color:#10b981; font-size:14px; font-weight:700;">${confidence}% Verified</span>
+                    <span style="font-size:9px; color:var(--color-muted);">YOLOv8 IR</span>
                 </div>
                 <div class="conf-meter-track">
                     <div class="conf-meter-fill" style="width:${confidence}%;"></div>
                 </div>
-                <div class="card-value-sub" style="margin-top:2px;">Neural Engine: Edge IR Core v2.4 (184ms)</div>
+                <div class="card-value-sub">Neural Engine: Edge IR Core v2.4 (184ms)</div>
             </div>
 
             <!-- 3. NODE NUMBER (WHICH CAMERA) -->
             <div class="dossier-card">
                 <label><i class="fa-solid fa-tower-broadcast text-info"></i> NODE NUMBER (WHICH CAMERA)</label>
                 <div class="card-value-primary">
-                    <span style="color:var(--color-link); font-size:15px;"><i class="fa-solid fa-camera"></i> ${nodeCode}</span>
-                    <span class="badge-online" style="padding:2px 6px; font-size:9px;"><i class="fa-solid fa-circle"></i> ACTIVE</span>
+                    <span style="color:var(--color-link); font-size:14px; font-weight:700;"><i class="fa-solid fa-camera"></i> ${nodeCode}</span>
+                    <span class="badge-online" style="padding:2px 6px; font-size:8.5px;"><i class="fa-solid fa-circle"></i> ACTIVE</span>
                 </div>
                 <div class="card-value-sub">Station: ${nodeName}</div>
-                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">${cameraType}</div>
+                <div class="card-value-sub" style="font-size:9px; color:var(--color-muted-soft);">${cameraType}</div>
             </div>
 
             <!-- 4. LOCATION -->
             <div class="dossier-card">
-                <label><i class="fa-solid fa-location-crosshairs text-info"></i> LOCATION (GPS & SECTOR)</label>
+                <label><i class="fa-solid fa-location-crosshairs text-info"></i> LOCATION (GPS &amp; SECTOR)</label>
                 <div class="card-value-primary">
-                    <span style="color:#06b6d4; font-size:12.5px;">${lat.toFixed(5)}° N, ${lon.toFixed(5)}° E</span>
+                    <span style="color:#06b6d4; font-size:12px; font-weight:700;">${lat.toFixed(5)}° N, ${lon.toFixed(5)}° E</span>
                 </div>
                 <div class="card-value-sub">${sector}</div>
-                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Pan-Tilt Azimuth: ${rotatorHeading}° SE Bearing</div>
+                <div class="card-value-sub" style="font-size:9px; color:var(--color-muted-soft);">Pan-Tilt Azimuth: ${rotatorHeading}° SE Bearing</div>
             </div>
 
-            <!-- 5. VILLAGE APPROX HAZARD -->
-            <div class="dossier-card card-span-2">
-                <label><i class="fa-solid fa-triangle-exclamation text-warning"></i> VILLAGE APPROX HAZARD</label>
-                <div class="card-value-primary">
-                    <span style="color:var(--color-primary); font-size:14px;">~${distanceMeters} meters from residential fringe</span>
-                    <span class="hazard-pill-critical">
-                        <i class="fa-solid fa-shield-halved"></i> ${distanceMeters < 350 ? 'RED ZONE - CRITICAL PROXIMITY (<350m)' : 'ORANGE ZONE - PERIMETER BUFFER HAZARD'}
-                    </span>
-                </div>
-                <div class="card-value-sub">Target Settlement: Rampur Village Perimeter (Buffer Zone Radius: 650m)</div>
-                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft); margin-top:2px;">
-                    Automated perimeter alert activated. Area farmers and forest workers advised to remain within safe boundary.
-                </div>
-            </div>
-
-            <!-- 6. DETECTED AT (TIME) -->
+            <!-- 5. DETECTED AT (TIME) -->
             <div class="dossier-card">
                 <label><i class="fa-solid fa-clock text-info"></i> DETECTED AT (TIME)</label>
                 <div class="card-value-primary">
-                    <span style="color:var(--color-primary); font-size:12.5px;">${detectedAt}</span>
+                    <span style="color:var(--color-primary); font-size:12px; font-weight:700;">${detectedAt}</span>
                 </div>
                 <div class="card-value-sub"><i class="fa-solid fa-person-running"></i> PIR Hardware Trigger (GPIO 18)</div>
-                <div class="card-value-sub" style="font-size:9.5px; color:var(--color-muted-soft);">Sensor-to-infer wake latency: 184ms</div>
+                <div class="card-value-sub" style="font-size:9px; color:var(--color-muted-soft);">Sensor-to-infer wake latency: 184ms</div>
             </div>
 
-            <!-- 7. REPORTED AT & NETWORK SYNC LATENCY (SECTION 4.2) -->
+            <!-- 6. REPORTED AT & NETWORK SYNC LATENCY -->
             <div class="dossier-card">
-                <label><i class="fa-solid fa-cloud-arrow-up text-warning"></i> REPORTED AT & SYNC LATENCY</label>
+                <label><i class="fa-solid fa-cloud-arrow-up text-warning"></i> REPORTED AT &amp; SYNC LATENCY</label>
                 <div class="card-value-primary">
-                    <span style="color:var(--color-warning); font-size:12.5px;">${reportedAt}</span>
-                    <span class="${sighting.is_delayed ? 'badge-high' : 'badge-online'}" style="padding:2px 6px; font-size:9px; font-weight:700;">
+                    <span style="color:var(--color-warning); font-size:12px; font-weight:700;">${reportedAt}</span>
+                    <span class="${sighting.is_delayed ? 'badge-high' : 'badge-online'}" style="padding:2px 5px; font-size:8.5px; font-weight:700;">
                         <i class="fa-solid ${sighting.is_delayed ? 'fa-clock-rotate-left' : 'fa-bolt'}"></i> ${sighting.latency_badge || 'Real-time (< 2s)'}
                     </span>
                 </div>
-                <div class="card-value-sub"><i class="fa-solid fa-satellite-dish"></i> Central HQ Ingest (Sec 4.2)</div>
-                <div class="card-value-sub" style="font-size:9.5px; color:${sighting.is_delayed ? '#f59e0b' : 'var(--color-muted-soft)'};">
-                    ${sighting.is_delayed ? '⚠️ Offline Backlog Recovery (flushed from edge SQLite after network restoration)' : '⚡ Real-Time Uplink (reported_at - detected_at < 2s)'}
+                <div class="card-value-sub"><i class="fa-solid fa-satellite-dish"></i> Central HQ Ingest</div>
+                <div class="card-value-sub" style="font-size:9px; color:${sighting.is_delayed ? '#f59e0b' : 'var(--color-muted-soft)'};">
+                    ${sighting.is_delayed ? '⚠️ Offline Backlog Recovery (flushed from edge SQLite)' : '⚡ Real-Time Uplink (latency < 2s)'}
                 </div>
             </div>
 
-            <!-- 8. SMS NOTIFICATION -->
+            <!-- 7. VILLAGE APPROX HAZARD -->
             <div class="dossier-card card-span-2">
-                <label><i class="fa-solid fa-comment-sms text-success"></i> SMS NOTIFICATION</label>
+                <label><i class="fa-solid fa-triangle-exclamation text-warning"></i> VILLAGE APPROX HAZARD</label>
                 <div class="card-value-primary">
-                    <span style="color:${isSmsDelivered ? '#10b981' : '#f59e0b'}; font-size:13px;">
-                        <i class="fa-solid ${isSmsDelivered ? 'fa-check-double' : 'fa-database'}"></i>
-                        ${isSmsDelivered ? `Dispatched to ${smsCount} Villagers & Forest Post` : 'Stored in SQLite Local Fallback (Zero Network Outage)'}
-                    </span>
-                    <span class="${isSmsDelivered ? 'badge-online' : 'badge-idle'}" style="padding:2px 6px; font-size:9px;">
-                        ${isSmsDelivered ? 'GSM 4G ACTIVE' : 'OFFLINE QUEUED'}
+                    <span style="color:var(--color-primary); font-size:13px; font-weight:700;">~${distanceMeters}m from residential fringe</span>
+                    <span class="hazard-pill-critical">
+                        <i class="fa-solid fa-shield-halved"></i> ${distanceMeters < 350 ? 'RED ZONE - CRITICAL (<350m)' : 'ORANGE ZONE - BUFFER HAZARD'}
                     </span>
                 </div>
-                <div class="card-value-sub">Recipients: 42 Registered Villagers + Sarpanch (Ramesh Patil) + Forest Ranger (Sanjay Deshmukh)</div>
+                <div class="card-value-sub">Target Settlement: Rampur Village Perimeter (Buffer Radius: 650m) • Automated early alert active.</div>
+            </div>
+
+            <!-- 8. ALERT PROTOCOLS: AUTOMATIC SYSTEM & MANUAL OFFICER DISPATCH -->
+            <div class="dossier-card card-span-2 dossier-alert-card">
+                <label><i class="fa-solid fa-bell text-warning"></i> ALERT PROTOCOLS &amp; BROADCAST STATUS</label>
+                <div class="alert-split-grid">
+                    <!-- Automatic Alert: Generated by System -->
+                    <div class="alert-channel-col auto-channel">
+                        <div class="channel-heading">
+                            <span class="channel-badge auto-badge"><i class="fa-solid fa-robot"></i> AUTOMATIC ALERT</span>
+                            <span class="channel-author">SYSTEM GENERATED</span>
+                        </div>
+                        <div class="channel-status ${isSmsDelivered ? 'text-success' : 'text-warning'}">
+                            <i class="fa-solid ${isSmsDelivered ? 'fa-circle-check' : 'fa-clock'}"></i>
+                            <span>${isSmsDelivered ? `Dispatched to ${smsCount} Villagers &amp; Outpost` : 'Queued in Local SQLite'}</span>
+                        </div>
+                        <div class="channel-desc">Triggered automatically on AI confidence verification (${confidence}%).</div>
+                    </div>
+
+                    <!-- Manual Alert: Initiated by Forest Officer -->
+                    <div class="alert-channel-col manual-channel">
+                        <div class="channel-heading">
+                            <span class="channel-badge manual-badge"><i class="fa-solid fa-user-shield"></i> MANUAL ALERT</span>
+                            <span class="channel-author">FOREST OFFICER INITIATED</span>
+                        </div>
+                        <div class="manual-action-row">
+                            <button type="button" class="btn btn-warning btn-xs btn-manual-dispatch" id="btn-card-manual-dispatch" onclick="triggerManualAlert()">
+                                <i class="fa-solid fa-paper-plane"></i> <span>MANUAL ALERT</span>
+                            </button>
+                            <span class="manual-status-note" id="manual-status-note">
+                                <i class="fa-solid fa-check"></i> Officer override standby
+                            </span>
+                        </div>
+                        <div class="channel-desc">Officer action to manually trigger or repeat localized SMS warning.</div>
+                    </div>
+                </div>
+
                 <div class="sms-payload-box">
-                    <strong><i class="fa-solid fa-terminal"></i> DISPATCHED SMS PAYLOAD:</strong> "[EMERGENCY WARNING] ${species} detected by ${nodeCode} at ~${distanceMeters}m from Rampur fringe. Stay indoors and secure livestock. - Forest Dept."
+                    <strong><i class="fa-solid fa-terminal"></i> SMS PAYLOAD:</strong> "[EMERGENCY WARNING] ${species} detected by ${nodeCode} at ~${distanceMeters}m from Rampur fringe. Stay indoors and secure livestock. - Forest Dept."
                 </div>
             </div>
         `;
@@ -1050,6 +1383,12 @@ function renderNodesGrid(nodes) {
     container.innerHTML = '';
     const totalEl = document.getElementById('stat-total-nodes');
     if (totalEl) totalEl.textContent = nodes.length;
+    const activeEl = document.getElementById('stat-active-nodes');
+    if (activeEl) {
+        const activeCount = nodes.filter(n => n.status === 'ONLINE_ACTIVE').length;
+        const standbyCount = nodes.length - activeCount;
+        activeEl.textContent = `${activeCount} Active / ${standbyCount} Standby`;
+    }
 
     nodes.forEach(node => {
         const card = document.createElement('div');
@@ -1140,7 +1479,11 @@ function initAddNodeModal() {
    PAGE 4: SYSTEM HEALTH & PLANTED CAMERAS FLEET DIAGNOSTICS
    ========================================================================== */
 function initSystemHealthView() {
-    loadPlantedCamerasHealth();
+    if (window.systemHealthInitialized) {
+        loadPlantedCamerasHealth();
+        return;
+    }
+    window.systemHealthInitialized = true;
 
     // Toggle between Graphical HUD Cards and Metrics List Table
     const btnCards = document.getElementById('btn-cam-view-cards');
@@ -1148,19 +1491,50 @@ function initSystemHealthView() {
     const hudGrid = document.getElementById('system-cameras-hud-grid');
     const tableWrap = document.getElementById('system-cameras-table-wrap');
 
-    btnCards?.addEventListener('click', () => {
-        btnCards.classList.add('active');
-        btnList?.classList.remove('active');
-        hudGrid?.classList.remove('hidden');
-        tableWrap?.classList.add('hidden');
+    function switchToCardsView() {
+        if (btnCards) {
+            btnCards.classList.add('active');
+        }
+        if (btnList) {
+            btnList.classList.remove('active');
+        }
+        if (hudGrid) {
+            hudGrid.classList.remove('hidden');
+        }
+        if (tableWrap) {
+            tableWrap.classList.add('hidden');
+        }
+    }
+
+    function switchToListView() {
+        if (btnList) {
+            btnList.classList.add('active');
+        }
+        if (btnCards) {
+            btnCards.classList.remove('active');
+        }
+        if (tableWrap) {
+            tableWrap.classList.remove('hidden');
+        }
+        if (hudGrid) {
+            hudGrid.classList.add('hidden');
+        }
+    }
+
+    // Default state: Cards must be selected by default, Cards visible, List hidden
+    switchToCardsView();
+
+    btnCards?.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchToCardsView();
     });
 
-    btnList?.addEventListener('click', () => {
-        btnList.classList.add('active');
-        btnCards?.classList.remove('active');
-        tableWrap?.classList.remove('hidden');
-        hudGrid?.classList.add('hidden');
+    btnList?.addEventListener('click', (e) => {
+        e.preventDefault();
+        switchToListView();
     });
+
+    loadPlantedCamerasHealth();
 
     // Fleet Scan Button
     document.getElementById('btn-scan-fleet-health')?.addEventListener('click', () => {
@@ -1439,13 +1813,14 @@ function openNodeDiagnosticsModal(nodeCode) {
 
     modal.classList.remove('hidden');
     if (modalTitle) {
-        modalTitle.innerHTML = `<i class="fa-solid fa-stethoscope"></i> Hardware Diagnostics: ${nodeCode}`;
+        modalTitle.innerHTML = `<i class="fa-solid fa-microchip"></i> DEEP DIAGNOSIS: <span class="text-primary">${nodeCode}</span>`;
     }
 
     modalBody.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: var(--color-muted); font-family: var(--font-mono); letter-spacing: 1px;">
-            <i class="fa-solid fa-spinner fa-spin" style="font-size: 26px; margin-bottom: 12px; color: var(--color-primary);"></i><br>
-            INTERROGATING ${nodeCode} HARDWARE BUS...
+        <div style="text-align: center; padding: 48px 24px; color: var(--color-muted); font-family: var(--font-mono); letter-spacing: 1px;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 28px; margin-bottom: 14px; color: var(--color-primary);"></i><br>
+            <span style="font-size: 13px; color: var(--color-ink); font-weight: 600;">INTERROGATING ${nodeCode} HARDWARE BUS...</span><br>
+            <span style="font-size: 10px; color: var(--color-muted); margin-top: 4px; display: inline-block;">Querying I2C thermal array, pan-tilt servo bus, LiFePO4 charge &amp; cellular telemetry</span>
         </div>
     `;
 
@@ -1455,11 +1830,11 @@ function openNodeDiagnosticsModal(nodeCode) {
             if (data.success && data.diagnostics) {
                 renderNodeDiagnosticsDetails(data.diagnostics);
             } else {
-                modalBody.innerHTML = `<div style="color:var(--color-alert); padding:20px;">Failed to query telemetry for ${nodeCode}.</div>`;
+                modalBody.innerHTML = `<div style="color:var(--color-alert); padding:30px; text-align:center; font-family:var(--font-mono);">Failed to query telemetry for ${nodeCode}.</div>`;
             }
         })
         .catch(() => {
-            modalBody.innerHTML = `<div style="color:var(--color-alert); padding:20px;">Connection timeout contacting node.</div>`;
+            modalBody.innerHTML = `<div style="color:var(--color-alert); padding:30px; text-align:center; font-family:var(--font-mono);">Connection timeout contacting node hardware.</div>`;
         });
 }
 
@@ -1467,182 +1842,272 @@ function renderNodeDiagnosticsDetails(diag) {
     const modalBody = document.getElementById('node-health-modal-body');
     if (!modalBody) return;
 
+    const modalTitle = document.getElementById('modal-health-title');
+    if (modalTitle) {
+        modalTitle.innerHTML = `<i class="fa-solid fa-microchip"></i> DEEP DIAGNOSIS: <span class="text-primary">${diag.node_code}</span> <span style="font-weight:400; color:var(--color-muted); font-size:15px;">· ${diag.node_name}</span>`;
+    }
+
     const batt = diag.power.battery_pct || 88;
     const heading = diag.rotator.current_bearing || 145;
+    const isOptimal = (diag.overall_health || '').includes('OPTIMAL') || (diag.overall_health || '').includes('100');
+    const healthBadgeClass = isOptimal ? 'badge-online' : 'badge-active';
 
     modalBody.innerHTML = `
-        <!-- Node Top Header -->
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--color-hairline); padding-bottom:16px; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
-            <div>
-                <div style="font-family:var(--font-display); font-size:22px; letter-spacing:2px; text-transform:uppercase; color:var(--color-primary); display:flex; align-items:center; gap:8px;">
-                    <i class="fa-solid fa-tower-broadcast"></i> ${diag.node_code} · ${diag.node_name}
+        <!-- Status Summary Banner -->
+        <div class="diag-summary-banner">
+            <div class="diag-summary-node">
+                <div class="diag-summary-badge-line">
+                    <span class="diag-node-pill"><i class="fa-solid fa-tower-broadcast"></i> ${diag.node_code}</span>
+                    <span class="${healthBadgeClass}">
+                        <i class="fa-solid ${isOptimal ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i> ${diag.overall_health}
+                    </span>
+                    <span class="badge-online"><i class="fa-solid fa-bolt"></i> ${diag.status || 'ONLINE ACTIVE'}</span>
                 </div>
-                <div style="font-size:12px; font-family:var(--font-body); color:var(--color-muted); margin-top:4px;">
-                    <i class="fa-solid fa-location-dot"></i> ${diag.sector} · GPS: ${Number(diag.latitude).toFixed(4)}°N, ${Number(diag.longitude).toFixed(4)}°E
+                <div class="diag-summary-station-title">${diag.node_name}</div>
+                <div class="diag-summary-geo">
+                    <span><i class="fa-solid fa-location-dot text-primary"></i> ${diag.sector}</span>
+                    <span class="font-mono text-info"><i class="fa-solid fa-crosshairs"></i> ${Number(diag.latitude).toFixed(4)}°N, ${Number(diag.longitude).toFixed(4)}°E</span>
                 </div>
             </div>
-            <div style="display:flex; align-items:center; gap:14px;">
-                <div class="hud-radial-wrap" style="width:52px; height:52px;">
-                    <svg class="hud-radial-svg" viewBox="0 0 58 58" style="width:52px; height:52px;">
+
+            <div class="diag-summary-telemetry">
+                <div class="hud-radial-wrap" title="Subsystem Health Integrity: ${diag.overall_health}">
+                    <svg class="hud-radial-svg" viewBox="0 0 58 58">
                         <circle class="hud-radial-bg" cx="29" cy="29" r="23"></circle>
                         <circle class="hud-radial-meter meter-healthy" cx="29" cy="29" r="23" stroke-dasharray="144.5" stroke-dashoffset="0"></circle>
                     </svg>
                     <div class="hud-radial-center">
                         <span class="hud-radial-val">100%</span>
-                        <span class="hud-radial-lbl">OPTIMAL</span>
+                        <span class="hud-radial-lbl">INTEGRITY</span>
                     </div>
                 </div>
-                <div style="text-align:right;">
-                    <span class="badge-online"><i class="fa-solid fa-circle-check"></i> ${diag.overall_health}</span>
-                    <div style="font-size:10px; font-family:var(--font-mono); color:var(--color-muted); margin-top:4px; letter-spacing:1px;">
-                        ${diag.last_diagnostic_time}
-                    </div>
+                <div class="diag-summary-timestamp-box">
+                    <span class="diag-ts-label">LAST BUS INTERROGATION</span>
+                    <span class="diag-ts-val font-mono">${diag.last_diagnostic_time}</span>
                 </div>
             </div>
         </div>
 
-        <!-- 4 Hardware Diagnostic Modules with Graphical Enhancements -->
-        <div class="health-spec-grid">
+        <!-- 4 Hardware Diagnostic Modules (2x2 Grid) -->
+        <div class="diag-modules-grid">
             
-            <!-- Module 1: Thermal Optical Array -->
-            <div class="health-module-card">
-                <div class="health-module-header">
-                    <span class="health-module-title"><i class="fa-solid fa-camera"></i> Thermal Optics Core</span>
-                    <span class="badge-online">100% OK</span>
-                </div>
-                <!-- Visual Thermal Matrix -->
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#080808; padding:8px 12px; border:1px solid var(--color-hairline); margin:4px 0;">
-                    <div class="thermal-matrix-grid">
-                        <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                        <div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                        <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div>
-                        <div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+            <!-- Module 1: Thermal Optics Core -->
+            <div class="diag-module-card">
+                <div class="diag-module-header">
+                    <div class="diag-module-title">
+                        <i class="fa-solid fa-camera text-primary"></i>
+                        <span>Thermal Optics Core</span>
                     </div>
-                    <div style="text-align:right;">
-                        <span class="text-success font-mono" style="font-size:12px;">31.2°C Core</span>
-                        <div style="font-size:9px; color:var(--color-muted); font-family:var(--font-mono);">16 Hz Refresh</div>
+                    <span class="badge-online">${diag.thermal_sensor.status}</span>
+                </div>
+
+                <div class="diag-module-instrument">
+                    <div class="thermal-matrix-wrap" style="flex: 1;">
+                        <div class="thermal-matrix-grid" title="Focal Plane Array: ${diag.thermal_sensor.active_pixels}">
+                            <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                            <div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                            <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div>
+                            <div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
+                        </div>
+                    </div>
+                    <div class="diag-instrument-stat">
+                        <span class="diag-inst-val text-success font-mono">${diag.thermal_sensor.core_temp_c}°C</span>
+                        <span class="diag-inst-sub font-mono">${diag.thermal_sensor.frame_rate} Optical Refresh</span>
                     </div>
                 </div>
-                <div class="health-param-list">
-                    <div class="health-param-row"><span>Sensor Model:</span><strong>${diag.thermal_sensor.model}</strong></div>
-                    <div class="health-param-row"><span>Bus & Clock:</span><strong>${diag.thermal_sensor.bus}</strong></div>
-                    <div class="health-param-row"><span>Active Pixels:</span><strong class="text-info">${diag.thermal_sensor.active_pixels}</strong></div>
-                    <div class="health-param-row"><span>NETD Noise:</span><strong>${diag.thermal_sensor.noise_equivalent_temp_diff}</strong></div>
+
+                <div class="diag-fields-list">
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">SENSOR MODEL</span>
+                        <span class="diag-field-val">${diag.thermal_sensor.model}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">BUS &amp; CLOCK</span>
+                        <span class="diag-field-val font-mono">${diag.thermal_sensor.bus}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">ACTIVE PIXEL ARRAY</span>
+                        <span class="diag-field-val text-primary font-mono">${diag.thermal_sensor.active_pixels}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">NETD NOISE EQUIVALENT</span>
+                        <span class="diag-field-val font-mono text-link">${diag.thermal_sensor.noise_equivalent_temp_diff}</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Module 2: Pan-Tilt Servo Stepper -->
-            <div class="health-module-card">
-                <div class="health-module-header">
-                    <span class="health-module-title"><i class="fa-solid fa-arrows-spin"></i> Pan-Tilt Rotator</span>
-                    <span class="badge-online">CALIBRATED</span>
+            <!-- Module 2: Pan-Tilt Gimbal Rotator -->
+            <div class="diag-module-card">
+                <div class="diag-module-header">
+                    <div class="diag-module-title">
+                        <i class="fa-solid fa-arrows-spin text-link"></i>
+                        <span>Pan-Tilt Rotator</span>
+                    </div>
+                    <span class="badge-online">${diag.rotator.status}</span>
                 </div>
-                <!-- Visual Compass Rose -->
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#080808; padding:6px 12px; border:1px solid var(--color-hairline); margin:4px 0;">
-                    <div class="compass-dial-wrap" style="width:48px; height:48px;">
+
+                <div class="diag-module-instrument">
+                    <div class="compass-dial-wrap" style="width:50px; height:50px;">
                         <svg class="compass-dial-svg" viewBox="0 0 56 56">
-                            <circle cx="28" cy="28" r="26" fill="none" stroke="#262626" stroke-width="1.5"></circle>
-                            <circle cx="28" cy="28" r="16" fill="none" stroke="#1a1a1a" stroke-width="1"></circle>
+                            <circle cx="28" cy="28" r="26" fill="none" stroke="#24332B" stroke-width="1.5"></circle>
+                            <circle cx="28" cy="28" r="16" fill="none" stroke="#16211C" stroke-width="1"></circle>
                             <text x="28" y="10" fill="#777" font-size="6" font-family="JetBrains Mono" text-anchor="middle">N</text>
                             <text x="49" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">E</text>
                             <text x="28" y="51" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">S</text>
                             <text x="7" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">W</text>
                             <g class="compass-needle-layer" style="transform: rotate(${heading}deg); transform-origin: 28px 28px;">
-                                <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(195, 217, 243, 0.15)"></path>
-                                <line x1="28" y1="28" x2="28" y2="4" stroke="#c3d9f3" stroke-width="2" stroke-linecap="round"></line>
+                                <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(63, 166, 107, 0.2)"></path>
+                                <line x1="28" y1="28" x2="28" y2="4" stroke="#3fa66b" stroke-width="2" stroke-linecap="round"></line>
                                 <circle cx="28" cy="28" r="2.5" fill="#ffffff"></circle>
                             </g>
                         </svg>
                     </div>
-                    <div style="text-align:right;">
-                        <span class="text-link font-mono" style="font-size:12px;">${diag.rotator.current_bearing}° Bearing</span>
-                        <div style="font-size:9px; color:var(--color-muted); font-family:var(--font-mono);">0°-360° Continuous</div>
+                    <div class="diag-instrument-stat">
+                        <span class="diag-inst-val text-link font-mono">${diag.rotator.current_bearing}° Azimuth</span>
+                        <span class="diag-inst-sub font-mono">${diag.rotator.sweep_limits}</span>
                     </div>
                 </div>
-                <div class="health-param-list">
-                    <div class="health-param-row"><span>Servo Supply:</span><strong class="text-success">${diag.rotator.servo_supply_v}</strong></div>
-                    <div class="health-param-row"><span>Step Precision:</span><strong>${diag.rotator.step_precision}</strong></div>
-                    <div class="health-param-row"><span>Gear Backlash:</span><strong>${diag.rotator.gear_backlash}</strong></div>
+
+                <div class="diag-fields-list">
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">SERVO BUS SUPPLY</span>
+                        <span class="diag-field-val text-success font-mono">${diag.rotator.servo_supply_v} Regulated</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">STEP PRECISION</span>
+                        <span class="diag-field-val font-mono">${diag.rotator.step_precision}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">GEAR BACKLASH</span>
+                        <span class="diag-field-val font-mono text-link">${diag.rotator.gear_backlash}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">SWEEP RANGE</span>
+                        <span class="diag-field-val">${diag.rotator.sweep_limits}</span>
+                    </div>
                 </div>
             </div>
 
             <!-- Module 3: Motion Interrupt Loop -->
-            <div class="health-module-card">
-                <div class="health-module-header">
-                    <span class="health-module-title"><i class="fa-solid fa-bolt"></i> PIR Hardware IRQ</span>
-                    <span class="badge-active">ARMED</span>
-                </div>
-                <!-- Visual Wake Latency Reaction Bar -->
-                <div style="background:#080808; padding:8px 12px; border:1px solid var(--color-hairline); margin:4px 0;">
-                    <div style="display:flex; justify-content:space-between; font-size:10px; font-family:var(--font-mono); color:var(--color-muted); margin-bottom:4px;">
-                        <span>WAKE SPEED</span>
-                        <strong class="text-success">&lt; ${diag.pir_interrupt.wake_to_infer_latency_ms} ms (Instant)</strong>
+            <div class="diag-module-card">
+                <div class="diag-module-header">
+                    <div class="diag-module-title">
+                        <i class="fa-solid fa-person-running text-warning"></i>
+                        <span>Motion Interrupt Loop</span>
                     </div>
-                    <div class="progress-bar"><div class="progress-fill fill-cyan" style="width: 36%;"></div></div>
+                    <span class="badge-active">${diag.pir_interrupt.status}</span>
                 </div>
-                <div class="health-param-list">
-                    <div class="health-param-row"><span>Interrupt Pin:</span><strong>GPIO ${diag.pir_interrupt.gpio_pin} (Edge)</strong></div>
-                    <div class="health-param-row"><span>Trigger Mode:</span><strong>${diag.pir_interrupt.trigger_mode}</strong></div>
-                    <div class="health-param-row"><span>Model State:</span><strong>Warm in RAM</strong></div>
-                    <div class="health-param-row"><span>False Positives (24h):</span><strong>${diag.pir_interrupt.false_positives_24h}</strong></div>
+
+                <div class="diag-latency-bar-block">
+                    <div class="diag-latency-label-line">
+                        <span class="diag-field-label">EDGE WAKE RESPONSE SPEED</span>
+                        <span class="text-success font-mono" style="font-weight:700;">&lt; ${diag.pir_interrupt.wake_to_infer_latency_ms} ms (Instant)</span>
+                    </div>
+                    <div class="progress-bar" style="height:6px; margin-top:4px;">
+                        <div class="progress-fill fill-cyan" style="width: 28%;"></div>
+                    </div>
+                </div>
+
+                <div class="diag-fields-list">
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">INTERRUPT GPIO PIN</span>
+                        <span class="diag-field-val font-mono">GPIO ${diag.pir_interrupt.gpio_pin} (Edge Interrupt)</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">HARDWARE TRIGGER MODE</span>
+                        <span class="diag-field-val font-mono text-warning">${diag.pir_interrupt.trigger_mode}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">EDGE AI MODEL STATE</span>
+                        <span class="diag-field-val text-success">Warm in RAM (Instant Infer)</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">FALSE POSITIVES (24H)</span>
+                        <span class="diag-field-val font-mono">${diag.pir_interrupt.false_positives_24h} Events</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Module 4: Power & Battery Subsystem -->
-            <div class="health-module-card">
-                <div class="health-module-header">
-                    <span class="health-module-title"><i class="fa-solid fa-solar-panel"></i> Power Reserves</span>
-                    <span class="badge-online">${batt}% CHARGE</span>
+            <!-- Module 4: Power Reserves & Solar Subsystem -->
+            <div class="diag-module-card">
+                <div class="diag-module-header">
+                    <div class="diag-module-title">
+                        <i class="fa-solid fa-solar-panel text-warning"></i>
+                        <span>Power Reserves</span>
+                    </div>
+                    <span class="badge-online">${batt}% CHARGED</span>
                 </div>
-                <!-- Visual Segmented Battery -->
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#080808; padding:8px 12px; border:1px solid var(--color-hairline); margin:4px 0;">
-                    <div class="battery-visual-shell">
+
+                <div class="diag-module-instrument">
+                    <div class="battery-visual-shell" style="width:110px; height:24px;">
                         <div class="batt-segment ${batt >= 20 ? 'filled' : ''}"></div>
                         <div class="batt-segment ${batt >= 40 ? 'filled' : ''}"></div>
                         <div class="batt-segment ${batt >= 60 ? 'filled' : ''}"></div>
                         <div class="batt-segment ${batt >= 80 ? 'filled' : ''}"></div>
                         <div class="batt-segment ${batt >= 95 ? 'filled' : ''}"></div>
                     </div>
-                    <div style="text-align:right;">
-                        <span class="text-accent font-mono" style="font-size:12px;">${diag.power.voltage}V LiFePO4</span>
-                        <div style="font-size:9px; color:var(--color-muted); font-family:var(--font-mono);">☀️ ${diag.power.solar_input_v}V Solar</div>
+                    <div class="diag-instrument-stat">
+                        <span class="diag-inst-val text-accent font-mono">${diag.power.voltage}V LiFePO4</span>
+                        <span class="diag-inst-sub font-mono"><i class="fa-solid fa-sun text-warning"></i> ${diag.power.solar_input_v}V Solar</span>
                     </div>
                 </div>
-                <div class="health-param-list">
-                    <div class="health-param-row"><span>Power Draw:</span><strong>${diag.power.power_draw_w} W (Idle)</strong></div>
-                    <div class="health-param-row"><span>Autonomy:</span><strong>${diag.power.estimated_autonomy_hrs} Hours Zero Sun</strong></div>
+
+                <div class="diag-fields-list">
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">IDLE POWER DRAW</span>
+                        <span class="diag-field-val text-success font-mono">${diag.power.power_draw_w} Watts</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">SOLAR HARVEST STATUS</span>
+                        <span class="diag-field-val text-warning"><i class="fa-solid fa-bolt"></i> ${diag.power.solar_charging ? 'Active Harvesting' : 'Float Standby'}</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">OFF-GRID AUTONOMY</span>
+                        <span class="diag-field-val font-mono text-primary">${diag.power.estimated_autonomy_hrs} Hours (Zero Sunlight)</span>
+                    </div>
+                    <div class="diag-field-row">
+                        <span class="diag-field-label">BATTERY CHEMISTRY</span>
+                        <span class="diag-field-val">LiFePO4 (2,000+ Cycles)</span>
+                    </div>
                 </div>
             </div>
 
         </div>
 
-        <!-- Communications & Offline Queue with Signal Waveform -->
-        <div style="background:var(--color-surface-soft); border:1px solid var(--color-hairline); padding:12px 16px; margin-top:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div class="rf-signal-bars">
+        <!-- Module 5: Connectivity & Offline Fallback Buffer -->
+        <div class="diag-comm-strip">
+            <div class="diag-comm-left">
+                <div class="rf-signal-bars" title="Signal: ${diag.comm_link.signal_rssi_dbm} dBm">
                     <div class="rf-bar b1 active"></div>
                     <div class="rf-bar b2 active"></div>
                     <div class="rf-bar b3 active"></div>
                     <div class="rf-bar b4 active"></div>
                 </div>
-                <div style="font-size:11px; font-family:var(--font-mono); color:var(--color-muted); letter-spacing:1px;">
-                    <span class="text-success"><i class="fa-solid fa-signal"></i> ${diag.comm_link.primary}</span> &nbsp;|&nbsp; 
-                    <span>RSSI: <strong>${diag.comm_link.signal_rssi_dbm} dBm</strong></span> &nbsp;|&nbsp; 
-                    <span>Ping: <strong>${diag.comm_link.roundtrip_latency_ms} ms</strong></span>
+                <div class="diag-comm-info">
+                    <div class="diag-comm-title"><i class="fa-solid fa-tower-cell text-success"></i> ${diag.comm_link.primary}</div>
+                    <div class="diag-comm-meta font-mono">
+                        <span>RSSI: <strong>${diag.comm_link.signal_rssi_dbm} dBm</strong></span>
+                        <span>Round-trip: <strong>${diag.comm_link.roundtrip_latency_ms} ms</strong></span>
+                        <span>Packet Loss: <strong>${diag.comm_link.packet_loss_pct}%</strong></span>
+                        <span>Fallback: <strong>${diag.comm_link.offline_channel}</strong></span>
+                    </div>
                 </div>
             </div>
-            <div>
-                <span class="badge-online" style="font-size:10px;"><i class="fa-solid fa-database"></i> SQLite Sync OK</span>
+            <div class="diag-comm-right">
+                <span class="badge-online font-mono" style="font-size:10px;"><i class="fa-solid fa-database"></i> SQLite Transaction Buffer OK</span>
             </div>
         </div>
 
-        <!-- Action Buttons -->
-        <div style="display:flex; justify-content:flex-end; gap:12px; margin-top:18px;">
+        <!-- Footer Actions -->
+        <div class="diag-footer-actions">
             <button class="btn btn-outline btn-sm" id="btn-retest-camera" data-node="${diag.node_code}">
-                <i class="fa-solid fa-rotate"></i> Re-test Hardware
+                <i class="fa-solid fa-arrows-rotate"></i> Re-test Hardware Bus
             </button>
             <button class="btn btn-primary btn-sm" id="btn-calibrate-camera" data-node="${diag.node_code}">
-                <i class="fa-solid fa-compass"></i> Calibrate Pan-Tilt
+                <i class="fa-solid fa-compass"></i> Calibrate Pan-Tilt Zero Azimuth
+            </button>
+            <button class="btn btn-outline btn-sm" id="btn-close-diag-footer">
+                <i class="fa-solid fa-xmark"></i> Close Inspection
             </button>
         </div>
     `;
@@ -1657,5 +2122,10 @@ function renderNodeDiagnosticsDetails(diag) {
             .then(data => {
                 showTemporaryNotification(`CALIBRATED: Pan-tilt zero azimuth aligned on ${diag.node_code}.`, 'success');
             });
+    });
+
+    document.getElementById('btn-close-diag-footer')?.addEventListener('click', () => {
+        const diagModal = document.getElementById('modal-node-health');
+        diagModal?.classList.add('hidden');
     });
 }

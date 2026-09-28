@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Camera Nodes & Towers Network | Project Indradhanu{% endblock %}
+{% block title %}Camera Nodes &amp; Surveillance Towers | Project Indradhanu{% endblock %}
 
 {% block content %}
 <div class="page-container">
     <div class="page-header-row">
         <div class="page-title-block">
-            <h2><i class="fa-solid fa-tower-broadcast"></i> Camera Nodes & Surveillance Towers</h2>
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-tower-broadcast"></i> SENSOR STATIONS &amp; MESH ARRAY</span>
+                <h2><i class="fa-solid fa-tower-broadcast"></i> Camera Nodes &amp; Surveillance Towers</h2>
+            </div>
             <p class="page-subtitle">Distributed Raspberry Pi 4 edge camera nodes scanning the forest fringe with thermal imaging and pan-tilt rotators.</p>
         </div>
         <div class="page-header-actions">
@@ -58,7 +61,7 @@
 <div class="modal-backdrop hidden" id="modal-add-node">
     <div class="modal-card modal-sm-card">
         <div class="modal-header">
-            <h3><i class="fa-solid fa-tower-broadcast"></i> Register & Deploy Camera Node</h3>
+            <h3><i class="fa-solid fa-tower-broadcast"></i> Register &amp; Deploy Camera Node</h3>
             <button class="modal-close-btn" id="btn-close-add-node"><i class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
@@ -94,7 +97,7 @@
                         <option value="Dual Thermal + Night Vision IR">Dual Thermal + Night Vision IR</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center;">
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center; width: 100%;">
                     <i class="fa-solid fa-check"></i> Register Edge Node
                 </button>
             </form>

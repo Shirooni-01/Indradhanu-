@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Project Indradhanu | Wildlife Early Warning System{% endblock %}</title>
     
-    <!-- Google Fonts -->
+    <!-- Google Fonts: Saira Condensed, Barlow Condensed, JetBrains Mono, Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&family=Saira+Condensed:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Leaflet CSS for Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -16,57 +16,74 @@
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Custom CSS -->
+    <!-- Forest Command Dark Tactical CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <div class="app-layout">
         
-        <!-- COMPACT AUTO-HIDE NAVIGATION SIDEBAR (EXPANDS ON HOVER TO SHOW COMPLETE NAMES) -->
+        <!-- COMPACT TACTICAL NAVIGATION SIDEBAR DOCK (EXPANDS ON HOVER) -->
         <aside class="sidebar-dock" id="sidebar-dock">
-            <!-- Brand Logo -->
+            <!-- Brand Crest & Project Identity -->
             <div class="dock-header">
-                <div class="dock-logo">
-                    <i class="fa-solid fa-shield-cat"></i>
+                <div class="dock-logo" title="Project Indradhanu Crest">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="30" height="30">
+                        <defs>
+                            <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#69C18A" />
+                                <stop offset="50%" stop-color="#BFD7EA" />
+                                <stop offset="100%" stop-color="#E6A23C" />
+                            </linearGradient>
+                        </defs>
+                        <rect width="100" height="100" rx="16" fill="#101A16"/>
+                        <!-- Guardian Shield / Forest Tree Canopy -->
+                        <path d="M50 16 C30 16 18 32 18 54 C18 72 50 86 50 86 C50 86 82 72 82 54 C82 32 70 16 50 16 Z" fill="none" stroke="#2E7D5B" stroke-width="4" stroke-dasharray="5 3"/>
+                        <!-- Rainbow radar waves (Indradhanu) -->
+                        <path d="M30 42 A24 24 0 0 1 70 42" fill="none" stroke="url(#arcGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M36 49 A16 16 0 0 1 64 49" fill="none" stroke="#3FA66B" stroke-width="4" stroke-linecap="round"/>
+                        <!-- Forest Pine / Beacon -->
+                        <polygon points="50,30 38,52 45,52 36,68 64,68 55,52 62,52" fill="#2E7D5B"/>
+                        <circle cx="50" cy="30" r="4" fill="#69C18A"/>
+                    </svg>
                 </div>
                 <div class="dock-title-text">
                     <h2>INDRADHANU</h2>
-                    <span class="dock-sub">PROJECT C</span>
+                    <span class="dock-sub">PROJECT C • EDGE SURVEILLANCE</span>
                 </div>
             </div>
 
-            <!-- Vertical Navigation List (Icons only -> Complete Name on Hover) -->
+            <!-- Vertical Navigation Links -->
             <nav class="dock-nav">
-                <a href="/" class="dock-nav-item {% if active_page == 'map' %}active{% endif %}">
+                <a href="/" class="dock-nav-item {% if active_page == 'map' %}active{% endif %}" title="Tactical GIS Map">
                     <i class="fa-solid fa-map-location-dot"></i>
                     <span class="nav-name">Tactical GIS Map</span>
                 </a>
 
-                <a href="/history" class="dock-nav-item {% if active_page == 'history' %}active{% endif %}">
+                <a href="/history" class="dock-nav-item {% if active_page == 'history' %}active{% endif %}" title="Wildlife Sightings">
                     <i class="fa-solid fa-clock-rotate-left"></i>
-                    <span class="nav-name">Sightings History</span>
+                    <span class="nav-name">Wildlife Sightings</span>
                     <span class="nav-counter-badge" id="dock-badge-history">4</span>
                 </a>
 
-                <a href="/contacts" class="dock-nav-item {% if active_page == 'contacts' %}active{% endif %}">
+                <a href="/contacts" class="dock-nav-item {% if active_page == 'contacts' %}active{% endif %}" title="Villager & Authority SMS Directory">
                     <i class="fa-solid fa-address-book"></i>
                     <span class="nav-name">Villager Directory</span>
                 </a>
 
-                <a href="/nodes" class="dock-nav-item {% if active_page == 'nodes' %}active{% endif %}">
+                <a href="/nodes" class="dock-nav-item {% if active_page == 'nodes' %}active{% endif %}" title="Camera Nodes & Towers">
                     <i class="fa-solid fa-tower-broadcast"></i>
                     <span class="nav-name">Camera Nodes</span>
-                    <span class="nav-counter-badge" style="background:var(--accent-cyan); color:#000; font-weight:700;" id="dock-badge-nodes">3</span>
+                    <span class="nav-counter-badge badge-nodes" id="dock-badge-nodes">3</span>
                 </a>
 
-                <a href="/system" class="dock-nav-item {% if active_page == 'system' %}active{% endif %}">
+                <a href="/system" class="dock-nav-item {% if active_page == 'system' %}active{% endif %}" title="System Health & Hardware Diagnostics">
                     <i class="fa-solid fa-microchip"></i>
                     <span class="nav-name">System Health</span>
                 </a>
             </nav>
 
-            <!-- Dock Footer / Status Dot -->
+            <!-- Dock Footer Link Indicator -->
             <div class="dock-footer">
                 <div class="dock-status-indicator">
                     <span class="pulse-dot"></span>
@@ -78,11 +95,11 @@
         <!-- MAIN VIEWPORT: TOP TELEMETRY BAR & PAGE CONTENT -->
         <div class="main-viewport">
             
-            <!-- TOP TELEMETRY & STATUS BAR -->
+            <!-- TOP TELEMETRY & TACTICAL STATUS BAR -->
             <header class="top-header">
                 <div class="telemetry-bar">
                     <!-- Camera Node Selector Dropdown -->
-                    <div class="telemetry-item" style="border-color: var(--color-hairline-strong); min-width: 195px;">
+                    <div class="telemetry-item item-station">
                         <span class="item-label"><i class="fa-solid fa-tower-broadcast"></i> ACTIVE STATION</span>
                         <select id="camera-node-selector" class="station-select-dropdown" title="Switch active camera station">
                             <option value="ALL">🌐 ALL STATIONS (OVERVIEW)</option>
@@ -100,7 +117,7 @@
                         </span>
                     </div>
 
-                    <!-- Battery & Solar -->
+                    <!-- Battery & Solar Energy Telemetry -->
                     <div class="telemetry-item">
                         <span class="item-label"><i class="fa-solid fa-solar-panel"></i> BATTERY</span>
                         <span class="item-value text-accent" id="telemetry-battery"><i class="fa-solid fa-bolt"></i> 88% SOLAR</span>
@@ -122,7 +139,7 @@
 
                     <!-- System Clock -->
                     <div class="telemetry-item clock-item">
-                        <span class="item-label">SYSTEM TIME (IST)</span>
+                        <span class="item-label"><i class="fa-regular fa-clock"></i> SYSTEM TIME (IST)</span>
                         <span class="item-value clock-time" id="system-clock">--:--:--</span>
                     </div>
                 </div>
@@ -130,10 +147,10 @@
                 <!-- Quick Action Buttons -->
                 <div class="header-actions">
                     <button class="btn btn-outline" id="btn-toggle-offline" title="Simulate Internet/GSM outage to test SQLite fallback queue">
-                        <i class="fa-solid fa-plug-circle-xmark"></i> Simulate Offline
+                        <i class="fa-solid fa-plug-circle-xmark"></i> <span>Simulate Offline</span>
                     </button>
                     <button class="btn btn-primary" id="btn-sim-detection" title="Simulate wild animal crossing perimeter">
-                        <i class="fa-solid fa-paw"></i> Test Detection
+                        <i class="fa-solid fa-paw"></i> <span>Test Detection</span>
                     </button>
                     <button class="btn btn-icon" id="btn-sound-toggle" title="Mute/Unmute Audio Alert Siren">
                         <i class="fa-solid fa-volume-high"></i>
