@@ -1,6 +1,6 @@
 """
 Project Indradhanu (Project C) - Headless Edge Station Runner
-Runs an autonomous camera post on Raspberry Pi 4 (or simulation on PC).
+Runs an autonomous camera post on Raspberry Pi 3 Model B+.
 """
 
 import sys

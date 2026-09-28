@@ -18,8 +18,11 @@ from werkzeug.utils import secure_filename
 from database.db_manager import (
     init_db, log_detection, queue_offline_alert, flush_offline_queue, 
     get_recent_detections, get_contacts, get_camera_nodes, register_camera_node,
-    update_node_heartbeat, log_synced_detection
+    update_node_heartbeat, log_synced_detection,
+    add_contact, update_contact, delete_contact, update_node_location
 )
+from database.system_config import load_system_config, save_system_config
+from edge.services.sms_service import SMSService
 from ml_engine.detector import IndradhanuDetector
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -43,7 +46,7 @@ def load_camera_config():
                 return json.load(f)
         except Exception:
             pass
-    return {"conf_threshold": 0.45, "thermal_mode": False}
+    return {"conf_threshold": 0.45}
 
 def save_camera_config(conf_dict):
     """Persists camera settings to disk."""
@@ -55,6 +58,7 @@ def save_camera_config(conf_dict):
         print(f"[Config] Error saving camera config: {e}")
 
 SAVED_CONFIG = load_camera_config()
+_INIT_SYS_CFG = load_system_config()
 
 # System in-memory state
 SYSTEM_STATE = {
@@ -64,8 +68,14 @@ SYSTEM_STATE = {
     "solar_charging": True,
     "pir_status": "STANDBY",  # 'STANDBY', 'WAKE_ACTIVE'
     "rotator_heading": 145,
-    "offline_queue_count": 0
+    "offline_queue_count": 0,
+    "latitude": _INIT_SYS_CFG.get("latitude", 21.1458),
+    "longitude": _INIT_SYS_CFG.get("longitude", 79.0882),
+    "location_source": _INIT_SYS_CFG.get("location_source", "DEFAULT"),
+    "location_accuracy_m": _INIT_SYS_CFG.get("location_accuracy_m", 0.0)
 }
+
+sms_gateway = SMSService()
 
 def detect_available_cameras():
     """Detects available camera devices on Windows and identifies Iriun/Integrated cameras."""
@@ -91,14 +101,13 @@ def detect_available_cameras():
 # Auto-detect default camera source: prefer Iriun Webcam if available
 AVAILABLE_DEVICES = detect_available_cameras()
 iriun_device = next((d for d in AVAILABLE_DEVICES if d.get("is_iriun")), None)
-DEFAULT_SOURCE = iriun_device["id"] if iriun_device else "SIMULATION"
+DEFAULT_SOURCE = iriun_device["id"] if iriun_device else ("0" if AVAILABLE_DEVICES else "0")
 
 CAMERA_LOCK = threading.Lock()
 
 # Live Camera Stream State (Restored from persistent storage)
 CAMERA_STATE = {
     "source": DEFAULT_SOURCE,
-    "thermal_mode": bool(SAVED_CONFIG.get("thermal_mode", False)),
     "conf_threshold": float(SAVED_CONFIG.get("conf_threshold", 0.45)),
     "cap": None,
     "active_source_string": None
@@ -200,7 +209,6 @@ def surveillance_worker():
         try:
             with CAMERA_LOCK:
                 source = CAMERA_STATE["source"]
-                thermal_mode = CAMERA_STATE["thermal_mode"]
                 conf_thresh = CAMERA_STATE["conf_threshold"]
 
             frame = None
@@ -268,13 +276,7 @@ def surveillance_worker():
                 time.sleep(0.08)
                 continue
 
-            # Apply thermal color simulation if enabled
-            if thermal_mode:
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                gray = cv2.equalizeHist(gray)
-                frame = cv2.applyColorMap(gray, cv2.COLORMAP_INFERNO)
-
-            # Run Real Trained AI Inference
+            # Run Real Trained AI Inference (Optical Stream)
             dets = []
             if ai_detector.is_loaded:
                 dets, annotated, lat = ai_detector.predict_frame(frame, conf_thresh=conf_thresh, annotate=True)
@@ -288,7 +290,7 @@ def surveillance_worker():
             valid_dets = [
                 d for d in dets 
                 if d["confidence"] >= min_conf_pct and d["species"] in (
-                    "Bengal Tiger", "Indian Leopard", "Tiger", "Leopard", "Sloth Bear", "Asiatic Lion"
+                    "Bengal Tiger", "Indian Leopard", "Tiger", "Leopard"
                 )
             ]
 
@@ -331,8 +333,10 @@ def surveillance_worker():
                         cv2.imwrite(str(save_file), best_annotated)
                         web_path = f"/static/snapshots/{snap_name}"
 
-                        lat = 21.1458 + (random.random() - 0.5) * 0.003
-                        lon = 79.0882 + (random.random() - 0.5) * 0.003
+                        base_lat = SYSTEM_STATE.get("latitude", 21.1458)
+                        base_lon = SYSTEM_STATE.get("longitude", 79.0882)
+                        lat = round(base_lat + (random.random() - 0.5) * 0.002, 6)
+                        lon = round(base_lon + (random.random() - 0.5) * 0.002, 6)
                         dist = random.randint(180, 380)
                         heading = SYSTEM_STATE.get("rotator_heading", 145)
 
@@ -342,9 +346,21 @@ def surveillance_worker():
                         )
                         sighting["incident_id"] = det_id
 
-                        if not SYSTEM_STATE["is_online"]:
+                        # Dispatch SMS to all registered contacts
+                        contacts = get_contacts()
+                        sms_reports = []
+                        if SYSTEM_STATE["is_online"]:
+                            try:
+                                sent_cnt, failed_list, alert_msg, sms_reports = sms_gateway.broadcast_alert(
+                                    contacts, top["species"], top["scientific_name"],
+                                    top["threat_level"], "NODE-01", "Perimeter Sector", dist
+                                )
+                                print(f"[AI Detection SMS] Dispatched to {sent_cnt}/{len(contacts)} contacts for Incident #{det_id}")
+                            except Exception as sms_err:
+                                print(f"[AI Detection SMS Error] {sms_err}")
+                        else:
                             SYSTEM_STATE["offline_queue_count"] += 1
-                            for c in get_contacts():
+                            for c in contacts:
                                 queue_offline_alert(det_id, c["phone_number"], f"ALERT: {top['species']} detected near perimeter!")
 
                         LATEST_AUTO_DETECTION = {
@@ -362,7 +378,8 @@ def surveillance_worker():
                             "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S IST"),
                             "node_code": "NODE-01",
                             "timestamp": now_ts,
-                            "event_id": str(uuid.uuid4())
+                            "event_id": str(uuid.uuid4()),
+                            "sms_reports": sms_reports
                         }
                         print(f"[VERIFIED INCIDENT 🚨] {top['species']} in frame for {presence_time:.1f}s (Conf: {top['confidence']}%) -> Logged Incident #{det_id} [Snapshot: {snap_name}]")
 
@@ -444,8 +461,7 @@ def camera_page():
         active_page="camera", 
         model_info=model_info,
         current_conf=current_conf,
-        current_source=CAMERA_STATE["source"],
-        thermal_mode=CAMERA_STATE["thermal_mode"]
+        current_source=CAMERA_STATE["source"]
     )
 
 @app.route("/video_feed")
@@ -478,24 +494,19 @@ def camera_settings():
                             pass
                         CAMERA_STATE["cap"] = None
                     CAMERA_STATE["active_source_string"] = None
-            if "thermal_mode" in data:
-                CAMERA_STATE["thermal_mode"] = bool(data["thermal_mode"])
             if "conf_threshold" in data:
                 CAMERA_STATE["conf_threshold"] = float(data["conf_threshold"])
 
             save_camera_config({
                 "conf_threshold": CAMERA_STATE["conf_threshold"],
-                "thermal_mode": CAMERA_STATE["thermal_mode"],
                 "source": CAMERA_STATE["source"]
             })
         return jsonify({"success": True, "settings": {
             "source": CAMERA_STATE["source"],
-            "thermal_mode": CAMERA_STATE["thermal_mode"],
             "conf_threshold": CAMERA_STATE["conf_threshold"]
         }})
     return jsonify({"success": True, "settings": {
         "source": CAMERA_STATE["source"],
-        "thermal_mode": CAMERA_STATE["thermal_mode"],
         "conf_threshold": CAMERA_STATE["conf_threshold"]
     }})
 
@@ -530,24 +541,38 @@ def detect_upload():
 
     if detections:
         primary = detections[0]
-        lat = 21.1458 + (random.random() - 0.5) * 0.004
-        lon = 79.0882 + (random.random() - 0.5) * 0.004
+        base_lat = SYSTEM_STATE.get("latitude", 21.1458)
+        base_lon = SYSTEM_STATE.get("longitude", 79.0882)
+        lat = round(base_lat + (random.random() - 0.5) * 0.002, 6)
+        lon = round(base_lon + (random.random() - 0.5) * 0.002, 6)
         dist = random.randint(180, 450)
         heading = random.randint(45, 315)
         det_id = log_detection(
             primary["species"], primary["scientific_name"], primary["confidence"], 
             primary["threat_level"], lat, lon, dist, heading, web_path or f"/static/snapshots/{safe_name}", "NODE-01"
         )
-        if not SYSTEM_STATE["is_online"]:
+        contacts = get_contacts()
+        sms_reports = []
+        if SYSTEM_STATE["is_online"]:
+            try:
+                sent_cnt, failed_list, alert_msg, sms_reports = sms_gateway.broadcast_alert(
+                    contacts, primary["species"], primary["scientific_name"],
+                    primary["threat_level"], "NODE-01", "Perimeter Sector", dist
+                )
+            except Exception as e:
+                print(f"[Upload SMS Error] {e}")
+        else:
             SYSTEM_STATE["offline_queue_count"] += 1
-            for c in get_contacts():
+            for c in contacts:
                 queue_offline_alert(det_id, c["phone_number"], f"ALERT: {primary['species']} detected near perimeter!")
 
     return jsonify({
         "success": True,
         "detections": detections,
         "latency_ms": latency,
-        "snapshot_url": web_path or f"/static/snapshots/{safe_name}"
+        "snapshot_url": web_path or f"/static/snapshots/{safe_name}",
+        "sms_dispatched": len(sms_reports) > 0,
+        "sms_reports": sms_reports
     })
 
 @app.route("/history")
@@ -643,19 +668,6 @@ def node_diagnostics(node_code):
     }
     return jsonify({"success": True, "diagnostics": diagnostics})
 
-@app.route("/api/nodes/<node_code>/calibrate", methods=["POST"])
-def calibrate_node(node_code):
-    nodes = get_camera_nodes()
-    matched = next((n for n in nodes if n["node_code"] == node_code), None)
-    if not matched:
-        return jsonify({"success": False, "message": f"Node {node_code} not found"}), 404
-    return jsonify({
-        "success": True, 
-        "node_code": node_code,
-        "message": f"Pan-Tilt zero-point bearing calibrated for {node_code}.",
-        "heading": matched.get("rotator_heading", 145)
-    })
-
 @app.route("/api/system/status")
 def system_status():
     return jsonify({
@@ -664,29 +676,25 @@ def system_status():
         "server_time": datetime.now().strftime("%H:%M:%S")
     })
 
-@app.route("/api/offline/toggle", methods=["POST"])
-def toggle_offline():
-    SYSTEM_STATE["is_online"] = not SYSTEM_STATE["is_online"]
-    flushed_count = 0
-    if SYSTEM_STATE["is_online"]:
-        # If back online, flush SQLite fallback queue
-        flushed_count = flush_offline_queue()
-        SYSTEM_STATE["offline_queue_count"] = 0
-    
+@app.route("/api/offline/flush", methods=["POST"])
+def flush_offline():
+    """Flushes offline queued alerts when network connectivity is established."""
+    flushed_count = flush_offline_queue()
+    SYSTEM_STATE["offline_queue_count"] = 0
     return jsonify({
         "success": True,
         "is_online": SYSTEM_STATE["is_online"],
-        "flushed_count": flushed_count
+        "flushed_count": flushed_count,
+        "message": f"Successfully flushed {flushed_count} queued events."
     })
 
-@app.route("/api/rotator/heading", methods=["POST"])
-def set_rotator_heading():
-    data = request.get_json() or {}
-    angle = int(data.get("heading", 145))
-    SYSTEM_STATE["rotator_heading"] = angle % 360
+@app.route("/api/rotator/heading", methods=["GET", "POST"])
+def get_or_set_rotator_heading():
+    """Returns fixed compass heading for edge camera (145 degrees)."""
     return jsonify({
         "success": True,
-        "heading": SYSTEM_STATE["rotator_heading"]
+        "heading": 145,
+        "mode": "FIXED_BEARING"
     })
 
 @app.route("/api/detections", methods=["GET"])
@@ -703,8 +711,12 @@ def list_detections():
 
 @app.route("/api/sync/detection", methods=["POST"])
 def sync_detection():
-    """Endpoint for edge camera stations to push detections."""
-    data = request.get_json() or {}
+    """Endpoint for edge camera stations to push detections and snapshot images."""
+    if request.form:
+        data = request.form.to_dict()
+    else:
+        data = request.get_json(silent=True) or {}
+
     species = data.get("species", "Tiger")
     scientific_name = data.get("scientific_name", "Panthera tigris")
     confidence = float(data.get("confidence", 90.0))
@@ -717,14 +729,49 @@ def sync_detection():
     node_code = data.get("node_code", "NODE-01")
     detected_at = data.get("detected_at")
 
+    # Ingest uploaded snapshot file from edge device
+    if "snapshot" in request.files:
+        snap_file = request.files["snapshot"]
+        if snap_file and snap_file.filename:
+            upload_dir = Path(__file__).resolve().parent / "static" / "snapshots"
+            upload_dir.mkdir(parents=True, exist_ok=True)
+            safe_name = f"synced_{int(time.time())}_{secure_filename(snap_file.filename)}"
+            dest = upload_dir / safe_name
+            snap_file.save(str(dest))
+            img_path = f"/static/snapshots/{safe_name}"
+
     det_id = log_synced_detection(
         species, scientific_name, confidence, threat_level,
         lat, lon, distance_m, heading, img_path, node_code, detected_at
     )
+
+    # Immediately push to active live alert cache so tactical map beacons and sirens trigger
+    global LATEST_AUTO_DETECTION
+    now_ts = time.time()
+    rep_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")
+    LATEST_AUTO_DETECTION = {
+        "id": det_id,
+        "species": species,
+        "scientific": scientific_name,
+        "confidence": confidence,
+        "threat_level": threat_level,
+        "image_path": img_path,
+        "latitude": lat,
+        "longitude": lon,
+        "distance_meters": distance_m,
+        "time": detected_at or rep_time,
+        "detected_at": detected_at or rep_time,
+        "reported_at": rep_time,
+        "node_code": node_code,
+        "timestamp": now_ts,
+        "event_id": str(uuid.uuid4())
+    }
+
     return jsonify({
         "success": True,
         "detection_id": det_id,
         "reported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "image_path": img_path,
         "message": f"Detection from {node_code} ingested into Central HQ."
     }), 201
 
@@ -742,109 +789,178 @@ def sync_heartbeat():
     update_node_heartbeat(node_code, battery, heading, status, lat, lon)
     return jsonify({"success": True, "message": f"Heartbeat recorded for {node_code}"})
 
-@app.route("/api/detections/simulate", methods=["POST"])
-def simulate_detection():
-    data = request.get_json() or {}
-    node_code = data.get("node_code") or SYSTEM_STATE.get("node_id", "NODE-01")
-    if node_code == "ALL":
-        node_code = random.choice(["NODE-01", "NODE-02", "NODE-03"])
+@app.route("/api/contacts", methods=["GET", "POST"])
+def manage_contacts():
+    if request.method == "POST":
+        data = request.get_json() or {}
+        name = data.get("full_name") or data.get("name")
+        phone = data.get("phone_number") or data.get("phone")
+        village = data.get("village_name") or data.get("village", "Rampur")
+        role = data.get("role", "villager")
 
-    # Coordinate mapping per node
-    node_coords = {
-        "NODE-01": (21.1458, 79.0882, 145),
-        "NODE-02": (21.1410, 79.0940, 210),
-        "NODE-03": (21.1495, 79.0790, 90)
-    }
-    base_lat, base_lon, default_heading = node_coords.get(node_code, (21.1440, 79.0870, 145))
+        if not name or not phone:
+            return jsonify({"success": False, "message": "Name and phone number are required"}), 400
 
-    # Run real trained AI model on an unseen camera-trap test image if available
-    real_sample = None
-    if ai_detector.is_loaded:
-        real_sample = ai_detector.run_random_test_sample()
+        contact_id = add_contact(name.strip(), phone.strip(), village.strip(), role.strip())
+        return jsonify({
+            "success": True, 
+            "contact_id": contact_id, 
+            "message": f"Successfully registered {name} in emergency SMS directory."
+        }), 201
 
-    if real_sample and real_sample.get("all_detections"):
-        species = real_sample["species"]
-        sci_name = real_sample["scientific_name"]
-        threat = real_sample["threat_level"]
-        img = real_sample["web_snapshot_path"]
-        conf = real_sample["confidence"]
-    else:
-        species_pool = [
-            ("Bengal Tiger", "Panthera tigris", "CRITICAL", "/static/snapshots/tiger_sample.jpg"),
-            ("Indian Leopard", "Panthera pardus", "CRITICAL", "/static/snapshots/leopard_sample.jpg"),
-            ("Indian Sloth Bear", "Melursus ursinus", "HIGH", "/static/snapshots/bear_sample.jpg"),
-            ("Asiatic Lion", "Panthera leo persica", "CRITICAL", "/static/snapshots/lion_sample.jpg")
-        ]
-        choice = random.choice(species_pool)
-        species, sci_name, threat, img = choice
-        conf = round(88.0 + random.random() * 10, 1)
-
-    lat = base_lat + (random.random() - 0.5) * 0.003
-    lon = base_lon + (random.random() - 0.5) * 0.003
-    dist = random.randint(180, 420)
-    heading = default_heading
-    now = datetime.now()
-    det_time = now.strftime("%Y-%m-%d %H:%M:%S IST")
-    rep_time = now.strftime("%Y-%m-%d %H:%M:%S IST")
-    
-    det_id = log_detection(species, sci_name, conf, threat, lat, lon, dist, heading, img, node_code)
-    
-    # Check if network is offline
-    sms_status = "DELIVERED"
-    if not SYSTEM_STATE["is_online"]:
-        sms_status = "QUEUED_OFFLINE"
-        SYSTEM_STATE["offline_queue_count"] += 1
-        contacts = get_contacts()
-        for c in contacts:
-            msg = f"EMERGENCY WARNING: {species} detected near village perimeter. Stay indoors!"
-            queue_offline_alert(det_id, c["phone_number"], msg)
-
-    global LATEST_AUTO_DETECTION
-    now_ts = time.time()
-    LATEST_AUTO_DETECTION = {
-        "id": det_id,
-        "species": species,
-        "scientific": sci_name,
-        "confidence": conf,
-        "threat_level": threat,
-        "image_path": img,
-        "latitude": lat,
-        "longitude": lon,
-        "distance_meters": dist,
-        "time": det_time,
-        "detected_at": det_time,
-        "reported_at": rep_time,
-        "node_code": node_code,
-        "timestamp": now_ts,
-        "event_id": str(uuid.uuid4())
-    }
-            
-    return jsonify({
-        "success": True,
-        "detection": {
-            "id": det_id,
-            "species": species,
-            "scientific": sci_name,
-            "threat_level": threat,
-            "confidence": conf,
-            "latitude": lat,
-            "longitude": lon,
-            "distance_meters": dist,
-            "image_path": img,
-            "sms_status": sms_status,
-            "time": det_time,
-            "detected_at": det_time,
-            "reported_at": rep_time,
-            "node_code": node_code,
-            "timestamp": now_ts,
-            "event_id": LATEST_AUTO_DETECTION["event_id"]
-        }
-    })
-
-@app.route("/api/contacts", methods=["GET"])
-def list_contacts():
     contacts = get_contacts()
     return jsonify({"success": True, "contacts": contacts})
+
+@app.route("/api/contacts/<int:contact_id>", methods=["PUT", "DELETE"])
+def modify_contact(contact_id):
+    if request.method == "PUT":
+        data = request.get_json() or {}
+        name = data.get("full_name") or data.get("name")
+        phone = data.get("phone_number") or data.get("phone")
+        village = data.get("village_name") or data.get("village", "Rampur")
+        role = data.get("role", "villager")
+
+        if not name or not phone:
+            return jsonify({"success": False, "message": "Name and phone number are required"}), 400
+
+        update_contact(contact_id, name.strip(), phone.strip(), village.strip(), role.strip())
+        return jsonify({"success": True, "message": f"Updated contact #{contact_id} successfully."})
+
+    elif request.method == "DELETE":
+        delete_contact(contact_id)
+        return jsonify({"success": True, "message": f"Deleted contact #{contact_id} from directory."})
+
+@app.route("/api/system/location", methods=["GET", "POST"])
+def system_location():
+    """Gets or sets the exact system / node GPS location."""
+    if request.method == "POST":
+        data = request.get_json() or {}
+        try:
+            lat = float(data["latitude"])
+            lon = float(data["longitude"])
+            accuracy = float(data.get("accuracy", 0.0))
+            source = data.get("source", "GPS_BROWSER" if data.get("auto_gps") else "MANUAL")
+
+            SYSTEM_STATE["latitude"] = lat
+            SYSTEM_STATE["longitude"] = lon
+            SYSTEM_STATE["location_source"] = source
+            SYSTEM_STATE["location_accuracy_m"] = accuracy
+
+            save_system_config({
+                "latitude": lat,
+                "longitude": lon,
+                "location_source": source,
+                "location_accuracy_m": accuracy
+            })
+
+            # Update primary station NODE-01 in central database
+            update_node_location("NODE-01", lat, lon)
+
+            print(f"[Location Updated] Exact system coordinates calibrated: {lat:.5f} N, {lon:.5f} E ({source})")
+            return jsonify({
+                "success": True,
+                "status": "ok",
+                "latitude": lat,
+                "longitude": lon,
+                "source": source,
+                "accuracy": accuracy,
+                "message": f"Exact location calibrated: {lat:.5f} N, {lon:.5f} E"
+            })
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Invalid coordinates: {e}"}), 400
+
+    cfg = load_system_config()
+    return jsonify({
+        "success": True,
+        "latitude": SYSTEM_STATE.get("latitude", cfg.get("latitude", 21.1458)),
+        "longitude": SYSTEM_STATE.get("longitude", cfg.get("longitude", 79.0882)),
+        "source": SYSTEM_STATE.get("location_source", cfg.get("location_source", "DEFAULT")),
+        "accuracy_m": SYSTEM_STATE.get("location_accuracy_m", cfg.get("location_accuracy_m", 0.0)),
+        "nodes": get_camera_nodes()
+    })
+
+@app.route("/api/sms/dispatch-alert", methods=["POST"])
+def manual_dispatch_sms():
+    """Manually dispatches emergency SMS alert to all registered contacts."""
+    data = request.get_json() or {}
+    species = data.get("species", "Bengal Tiger")
+    scientific = data.get("scientific_name", "Panthera tigris")
+    threat = data.get("threat_level", "CRITICAL")
+    node_code = data.get("node_code", "NODE-01")
+    sector = data.get("sector", "Sector 1 (Perimeter)")
+    dist = int(data.get("distance_m", 280))
+
+    contacts = get_contacts()
+    if not contacts:
+        return jsonify({"success": False, "message": "No emergency contacts registered in directory"}), 400
+
+    sent_cnt, failed_list, alert_msg, reports = sms_gateway.broadcast_alert(
+        contacts, species, scientific, threat, node_code, sector, dist
+    )
+
+    return jsonify({
+        "success": True,
+        "sent_count": sent_cnt,
+        "total_contacts": len(contacts),
+        "failed": failed_list,
+        "message": alert_msg,
+        "reports": reports
+    })
+
+@app.route("/api/sms/test", methods=["POST"])
+def test_sms_dispatch():
+    """Sends a single test SMS verification message to a specified number."""
+    data = request.get_json() or {}
+    phone = data.get("phone") or data.get("phone_number")
+    if not phone:
+        cfg = load_system_config()
+        phone = cfg.get("test_mobile_number", "+91 8010294703")
+
+    custom_msg = data.get("message")
+    res = sms_gateway.send_test_sms(phone.strip(), custom_msg)
+    return jsonify({"success": res.get("success", False), "result": res})
+
+@app.route("/api/sms/config", methods=["GET", "POST"])
+def manage_sms_config():
+    """Reads or updates SMS Gateway configuration (Fast2SMS, Twilio, GSM modem)."""
+    if request.method == "POST":
+        data = request.get_json() or {}
+        updates = {}
+        if "sms_mode" in data:
+            updates["sms_mode"] = data["sms_mode"].strip()
+        if "fast2sms_api_key" in data:
+            updates["fast2sms_api_key"] = data["fast2sms_api_key"].strip()
+        if "twilio_account_sid" in data:
+            updates["twilio_account_sid"] = data["twilio_account_sid"].strip()
+        if "twilio_auth_token" in data:
+            updates["twilio_auth_token"] = data["twilio_auth_token"].strip()
+        if "twilio_from_number" in data:
+            updates["twilio_from_number"] = data["twilio_from_number"].strip()
+        if "test_mobile_number" in data:
+            updates["test_mobile_number"] = data["test_mobile_number"].strip()
+
+        cfg = save_system_config(updates)
+        sms_gateway.reload_config()
+        return jsonify({
+            "success": True,
+            "message": "SMS Gateway settings updated successfully.",
+            "mode": cfg.get("sms_mode"),
+            "has_fast2sms_key": bool(cfg.get("fast2sms_api_key"))
+        })
+
+    cfg = load_system_config()
+    key = cfg.get("fast2sms_api_key", "")
+    masked_key = (key[:4] + "*" * (len(key) - 8) + key[-4:]) if len(key) > 8 else ("****" if key else "")
+    return jsonify({
+        "success": True,
+        "sms_mode": cfg.get("sms_mode", "FAST2SMS"),
+        "has_fast2sms_key": bool(key),
+        "fast2sms_key_masked": masked_key,
+        "twilio_account_sid": cfg.get("twilio_account_sid", ""),
+        "twilio_from_number": cfg.get("twilio_from_number", ""),
+        "has_twilio_token": bool(cfg.get("twilio_auth_token")),
+        "test_mobile_number": cfg.get("test_mobile_number", "+91 8010294703")
+    })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

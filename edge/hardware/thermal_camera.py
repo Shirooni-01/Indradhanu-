@@ -1,60 +1,85 @@
 """
-Thermal Camera Driver with Hardware & Simulation Support.
-Captures infrared thermal sensor arrays and renders thermal colormaps.
+USB Camera Driver for Edge Station - Project Indradhanu
+Hardware: Standard USB Webcam on Raspberry Pi 3 B+ (/dev/video0) or Central PC.
+Captures live frames via OpenCV for real AI inference. Zero simulation fallbacks.
 """
 
 import os
-import random
-from edge.config import SIMULATION_MODE, SNAPSHOTS_DIR
+import sys
+import time
+from pathlib import Path
+import cv2
+from edge.config import CAMERA_SOURCE, SNAPSHOTS_DIR
 
-class ThermalCamera:
-    def __init__(self):
+class USBCamera:
+    """Production USB Webcam capture driver for Raspberry Pi and PC."""
+    def __init__(self, source=CAMERA_SOURCE):
+        self.source = str(source).strip()
+        self.cap = None
         self.is_connected = False
-        if not SIMULATION_MODE:
-            try:
-                # Attempt to load MLX90640 or I2C sensor
-                import smbus2
-                print("[Thermal Cam] I2C bus initialized for MLX90640 thermal sensor.")
-                self.is_connected = True
-            except Exception as e:
-                print(f"[Thermal Cam Warning] Sensor not found ({e}). Running in simulation mode.")
-        else:
-            print("[Thermal Cam] Initialized in SIMULATION mode.")
+        self._init_camera()
 
-    def capture_frame(self, target_species_hint=None):
+    def _init_camera(self):
+        """Initializes OpenCV VideoCapture for the configured camera source."""
+        cam_idx = int(self.source) if self.source.isdigit() else self.source
+        backend = cv2.CAP_V4L2 if sys.platform.startswith("linux") and isinstance(cam_idx, int) else cv2.CAP_ANY
+
+        try:
+            self.cap = cv2.VideoCapture(cam_idx, backend)
+            if self.cap and self.cap.isOpened():
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                ret, test_frame = self.cap.read()
+                if ret and test_frame is not None:
+                    self.is_connected = True
+                    print(f"[Camera] Successfully initialized USB camera (Device: {self.source}).")
+                    return
+        except Exception as e:
+            print(f"[Camera Error] Failed to initialize camera device {self.source}: {e}")
+
+        print(f"[Camera Warning] USB camera device {self.source} not currently available.")
+        self.is_connected = False
+
+    def capture_frame(self):
         """
-        Captures a thermal frame.
-        In simulation mode, selects or generates a thermal image for one of the 4 target animals.
-        Returns a dict containing snapshot path and metadata.
+        Captures a live frame from the USB camera.
+        Returns dict containing 'frame' (numpy array) and 'snapshot_path', or None on capture failure.
         """
-        # Look for existing sample snapshots in static/snapshots or edge/snapshots
-        samples_root = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "static", "snapshots")
-        
-        species_files = {
-            "tiger": ("tiger_sample.jpg", "Tiger", "Panthera tigris", "CRITICAL"),
-            "leopard": ("leopard_sample.jpg", "Leopard", "Panthera pardus", "CRITICAL"),
-            "bear": ("bear_sample.jpg", "Indian Sloth Bear", "Melursus ursinus", "HIGH"),
-            "lion": ("lion_sample.jpg", "Lion", "Panthera leo persica", "CRITICAL")
-        }
+        if not self.is_connected or not self.cap or not self.cap.isOpened():
+            # Attempt to re-initialize once
+            self._init_camera()
 
-        if target_species_hint and target_species_hint.lower() in species_files:
-            key = target_species_hint.lower()
-        else:
-            key = random.choice(list(species_files.keys()))
+        if self.is_connected and self.cap and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if ret and frame is not None:
+                os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
+                snap_filename = f"capture_{int(time.time())}.jpg"
+                full_path = os.path.join(SNAPSHOTS_DIR, snap_filename)
+                cv2.imwrite(full_path, frame)
 
-        filename, common_name, sci_name, threat = species_files[key]
-        full_path = os.path.join(samples_root, filename)
-
-        # Fallback relative path for web dashboard viewing
-        web_relative_path = f"/static/snapshots/{filename}"
+                return {
+                    "frame": frame,
+                    "snapshot_path": full_path,
+                    "web_snapshot_path": f"/static/snapshots/{snap_filename}"
+                }
+            else:
+                print("[Camera Warning] Frame grab returned empty frame.")
 
         return {
-            "species_key": key,
-            "common_name": common_name,
-            "scientific_name": sci_name,
-            "threat_level": threat,
-            "snapshot_path": full_path if os.path.exists(full_path) else web_relative_path,
-            "web_snapshot_path": web_relative_path,
-            "ambient_temp_c": round(26.0 + random.random() * 4.0, 1),
-            "max_target_temp_c": round(37.5 + random.random() * 2.5, 1)  # Warm mammal body temp
+            "frame": None,
+            "snapshot_path": None,
+            "web_snapshot_path": None
         }
+
+    def release(self):
+        """Safely releases the camera device handle."""
+        if self.cap:
+            try:
+                self.cap.release()
+            except Exception:
+                pass
+            self.cap = None
+            self.is_connected = False
+
+# Backward-compatibility alias for edge daemon
+ThermalCamera = USBCamera

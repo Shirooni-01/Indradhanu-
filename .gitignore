@@ -45,3 +45,4 @@ tests/*.jpg
 # Database backups and config overrides
 database/*.bak
 database/camera_config.json
+database/system_config.json

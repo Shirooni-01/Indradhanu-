@@ -51,6 +51,38 @@
         </div>
     </div>
 
+    <!-- SMS GATEWAY & INSTANT TEST DISPATCH PANEL -->
+    <div class="full-table-card" style="margin-bottom: 24px; border-left: 4px solid #10b981;">
+        <div class="table-card-header" style="justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h4 style="margin: 0;"><i class="fa-solid fa-tower-cell text-info"></i> SMS Alert Gateway:</h4>
+                <span class="badge-active font-mono" id="sms-gateway-mode-badge"><i class="fa-solid fa-circle-check"></i> FAST2SMS (India)</span>
+                <span id="sms-gateway-key-badge" class="badge-idle" style="font-size: 11px;">Checking Gateway...</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-outline btn-sm" id="btn-open-sms-settings" onclick="openSmsSettingsModal()">
+                    <i class="fa-solid fa-gear"></i> SMS Gateway API Settings
+                </button>
+            </div>
+        </div>
+        <div style="padding: 16px 20px; background: rgba(0,0,0,0.25); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+            <div style="flex: 1; min-width: 280px;">
+                <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 4px;">
+                    <i class="fa-solid fa-mobile-screen-button text-warning"></i> <strong>Live Test SMS Dispatcher:</strong> Verify emergency SMS delivery to your phone immediately.
+                </div>
+                <div style="font-size: 12px; color: #a0aec0;" id="sms-status-helper-text">
+                    Note: To deliver real SMS to mobile numbers, configure your free Fast2SMS API Key in Settings. (Without an API key, alerts run in simulated console mode).
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="tel" id="test-sms-phone-input" class="form-control" style="width: 190px; padding: 7px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;" value="+91 8010294703" placeholder="+91 XXXXXXXXXX">
+                <button class="btn btn-warning btn-sm" id="btn-send-test-sms" onclick="sendDirectTestSms()">
+                    <i class="fa-solid fa-bolt"></i> ⚡ Send Test SMS
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- FULL TABLE CARD -->
     <div class="full-table-card">
         <div class="table-card-header">
@@ -188,6 +220,61 @@
                     <i class="fa-solid fa-trash-can"></i> DELETE
                 </button>
             </div>
+        </div>
+<!-- MODAL: SMS GATEWAY API SETTINGS -->
+<div class="modal-backdrop hidden" id="modal-sms-settings">
+    <div class="modal-card modal-sm-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-gear text-info"></i> SMS Alert Gateway Configuration</h3>
+            <button type="button" class="modal-close-btn" onclick="closeSmsSettingsModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <form id="form-sms-settings" onsubmit="saveSmsGatewayConfig(event)">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label style="font-size: 12px; color: #cbd5e0; font-weight: 600;">SMS Gateway Provider</label>
+                    <select id="sms-mode-select" class="form-control" style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px;" onchange="toggleSmsProviderFields()">
+                        <option value="FAST2SMS">Fast2SMS (Recommended for India - Quick SMS API)</option>
+                        <option value="TWILIO">Twilio (Global Cloud SMS)</option>
+                        <option value="GSM_MODEM">Hardware GSM Modem (SIM800L / SIM7600 via COM/TTY)</option>
+                        <option value="SIMULATED_CONSOLE">Simulation Mode (Terminal Console Log)</option>
+                    </select>
+                </div>
+
+                <!-- FAST2SMS CONFIG -->
+                <div id="fields-fast2sms" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="font-size: 12px; color: #6ee7b7; font-weight: 600; margin: 0;">Fast2SMS API Key</label>
+                        <a href="https://www.fast2sms.com" target="_blank" style="font-size: 11px; color: #38bdf8; text-decoration: underline;">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Get Free Fast2SMS Key
+                        </a>
+                    </div>
+                    <input type="password" id="cfg-fast2sms-key" class="form-control" placeholder="Paste your Fast2SMS Dev API Key here..." style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;">
+                    <div style="font-size: 11px; color: #a0aec0; margin-top: 6px; line-height: 1.4;">
+                        Fast2SMS offers free instant testing credits on signup with any Indian number. Once pasted, real emergency SMS alerts will be transmitted directly to your mobile phone.
+                    </div>
+                </div>
+
+                <!-- TWILIO CONFIG -->
+                <div id="fields-twilio" style="display: none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Account SID</label>
+                        <input type="text" id="cfg-twilio-sid" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Auth Token</label>
+                        <input type="password" id="cfg-twilio-token" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Sender Phone (+1...)</label>
+                        <input type="text" id="cfg-twilio-from" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                    <button type="button" class="btn btn-outline" onclick="closeSmsSettingsModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Gateway Settings</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

@@ -1,0 +1,19 @@
+# ==============================================================================
+# Project Indradhanu - Edge Node Requirements (Raspberry Pi 3 Model B+)
+# Install with: pip install -r requirements-pi.txt
+# ==============================================================================
+
+# Core Edge Computer Vision & AI Inference
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+pillow>=10.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+
+# HTTP Networking & Telemetry Synchronization to Central HQ
+requests>=2.31.0
+
+# Hardware GPIO & Serial (PIR Interrupt Sensor & GSM Modem)
+RPi.GPIO>=0.7.1; sys_platform == 'linux'
+pyserial>=3.5

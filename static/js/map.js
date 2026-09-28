@@ -9,39 +9,17 @@ const CAMERA_STATIONS = {
         code: 'NODE-01',
         name: 'Tadoba North Perimeter Tower',
         sector: 'Sector 1 (Rampur Buffer)',
-        coords: [21.1458, 79.0882],
+        coords: [19.9152, 74.7279],
         heading: 145,
         battery: 88,
         status: 'ONLINE_ACTIVE',
         color: '#06b6d4',
-        camType: 'Thermal IR (MLX90640)'
-    },
-    'NODE-02': {
-        code: 'NODE-02',
-        name: 'Rampur East Buffer Tower',
-        sector: 'Sector 1 (Rampur Buffer)',
-        coords: [21.1410, 79.0940],
-        heading: 210,
-        battery: 94,
-        status: 'STANDBY',
-        color: '#f59e0b',
-        camType: 'Thermal IR + Night Vision'
-    },
-    'NODE-03': {
-        code: 'NODE-03',
-        name: 'Shivpuri West Fringe Tower',
-        sector: 'Sector 2 (Shivpuri Fringe)',
-        coords: [21.1495, 79.0790],
-        heading: 90,
-        battery: 79,
-        status: 'STANDBY',
-        color: '#10b981',
-        camType: 'Thermal IR (Seek Compact)'
+        camType: 'Optical USB Camera'
     }
 };
 
 let activeStationCode = 'NODE-01';
-let currentRadarOrigin = [21.1458, 79.0882];
+let currentRadarOrigin = [19.9152, 74.7279];
 let stationMarkers = {};
 const VILLAGE_COORDS = [21.1390, 79.0830]; // Rampur Village Center
 
@@ -185,8 +163,26 @@ function initTacticalMap() {
     });
 
     document.getElementById('btn-recenter')?.addEventListener('click', function() {
-        map.setView([21.1435, 79.0860], 15, { animate: true });
+        if (map) map.setView(currentRadarOrigin, 15, { animate: true });
     });
+
+    // Sync with exact system coordinates from backend
+    fetch('/api/system/location')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.latitude && data.longitude) {
+                CAMERA_STATIONS['NODE-01'].coords = [data.latitude, data.longitude];
+                currentRadarOrigin = [data.latitude, data.longitude];
+                if (map) {
+                    map.setView([data.latitude, data.longitude], 15);
+                    if (stationMarkers['NODE-01']) {
+                        stationMarkers['NODE-01'].setLatLng([data.latitude, data.longitude]);
+                    }
+                    updateRadarCone(currentHeadingAngle);
+                }
+            }
+        })
+        .catch(e => console.warn('[Map Location Sync]', e));
 
     setTimeout(() => {
         if (map) map.invalidateSize();
@@ -196,6 +192,20 @@ function initTacticalMap() {
         if (map) map.invalidateSize();
     });
 }
+
+window.updateMapLocation = function(lat, lon) {
+    if (typeof CAMERA_STATIONS !== 'undefined' && CAMERA_STATIONS['NODE-01']) {
+        CAMERA_STATIONS['NODE-01'].coords = [lat, lon];
+        currentRadarOrigin = [lat, lon];
+        if (map) {
+            map.setView([lat, lon], 15);
+            if (stationMarkers['NODE-01']) {
+                stationMarkers['NODE-01'].setLatLng([lat, lon]);
+            }
+            updateRadarCone(currentHeadingAngle);
+        }
+    }
+};
 
 /**
  * Calculates GPS coordinates given a starting point, distance (meters), and bearing (degrees).

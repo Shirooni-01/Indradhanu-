@@ -54,14 +54,6 @@
                             <i class="fa-solid fa-shield-cat"></i> TARGETS: TIGER, LEOPARD
                         </span>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-sm btn-outline" id="btn-toggle-stream-thermal" title="Toggle Thermal False Color Palette">
-                            <i class="fa-solid fa-fire"></i> <span id="thermal-btn-label">Thermal Mode: OFF</span>
-                        </button>
-                        <button class="btn btn-sm btn-primary" id="btn-snap-alert" title="Snap Verified Detection & Alert HQ">
-                            <i class="fa-solid fa-camera"></i> <span>Capture Incident</span>
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Live Stream Display Area -->
@@ -187,13 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlInput = document.getElementById('phone-stream-url');
     const btnApplySource = document.getElementById('btn-apply-source');
     const streamSourceLabel = document.getElementById('stream-source-label');
-    const btnToggleThermal = document.getElementById('btn-toggle-stream-thermal');
-    const thermalBtnLabel = document.getElementById('thermal-btn-label');
     const sliderConf = document.getElementById('slider-conf');
     const confValLabel = document.getElementById('conf-val-label');
-    const btnSnapAlert = document.getElementById('btn-snap-alert');
-
-    let thermalActive = false;
     let cameraDevicesMap = {};
 
     // Load available hardware and virtual camera devices
@@ -302,23 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Toggle Thermal Mode
-    btnToggleThermal.addEventListener('click', async () => {
-        thermalActive = !thermalActive;
-        thermalBtnLabel.textContent = `Thermal Mode: ${thermalActive ? 'ON (IRONBOW)' : 'OFF'}`;
-        btnToggleThermal.classList.toggle('btn-primary', thermalActive);
-        btnToggleThermal.classList.toggle('btn-outline', !thermalActive);
-
-        try {
-            await fetch('/api/camera/settings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ thermal_mode: thermalActive })
-            });
-        } catch (e) {
-            console.error(e);
-        }
-    });
 
     // Confidence Slider Persistence & Dynamic Sync
     const subLabel = document.getElementById('conf-sub-label');
@@ -358,27 +328,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 150);
     });
 
-    // Snap & Alert button
-    btnSnapAlert.addEventListener('click', async () => {
-        btnSnapAlert.disabled = true;
-        btnSnapAlert.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Snapping...';
-        try {
-            const res = await fetch('/api/detections/simulate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ node_code: 'NODE-01' })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(`🚨 INCIDENT DISPATCHED! ${data.detection.species} (${data.detection.confidence}%) recorded into HQ database!`);
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            btnSnapAlert.disabled = false;
-            btnSnapAlert.innerHTML = '<i class="fa-solid fa-camera"></i> <span>Capture Incident</span>';
-        }
-    });
 
     // Image Upload & Drag-Drop
     const dropZone = document.getElementById('drop-zone');

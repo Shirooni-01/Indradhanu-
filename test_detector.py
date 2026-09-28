@@ -19,10 +19,8 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 SPECIES_METADATA = {
-    0: {"name": "Tiger", "color": (0, 140, 255), "threat": "CRITICAL"},      # Orange / Amber in BGR
-    1: {"name": "Leopard", "color": (0, 215, 255), "threat": "CRITICAL"},    # Yellow in BGR
-    2: {"name": "Sloth Bear", "color": (255, 100, 0), "threat": "HIGH"},
-    3: {"name": "Asiatic Lion", "color": (0, 255, 255), "threat": "CRITICAL"}
+    0: {"name": "Bengal Tiger", "color": (0, 140, 255), "threat": "CRITICAL"},    # Orange / Amber in BGR
+    1: {"name": "Indian Leopard", "color": (0, 215, 255), "threat": "CRITICAL"}    # Yellow in BGR
 }
 
 def draw_tactical_hud(img, boxes, names):

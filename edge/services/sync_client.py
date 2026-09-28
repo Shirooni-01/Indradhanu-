@@ -4,8 +4,10 @@ Runs as a background daemon on the Edge unit.
 Pushes unsynced local SQLite detections and hardware telemetry to Central HQ when network is reachable.
 """
 
+import os
 import time
 import threading
+from pathlib import Path
 import requests
 from edge.config import HQ_SERVER_URL, NODE_CODE, NODE_NAME, SECTOR, LATITUDE, LONGITUDE
 from edge.database.edge_db import (
@@ -54,22 +56,41 @@ class SyncClient:
         synced_count = 0
         url = f"{self.hq_url}/api/sync/detection"
 
+        root_dir = Path(__file__).resolve().parent.parent.parent
+
         for det in pending:
             payload = {
                 "node_code": det.get("node_code", self.node_code),
                 "species": det["species"],
-                "scientific_name": det.get("scientific_name"),
-                "confidence": det["confidence"],
+                "scientific_name": det.get("scientific_name") or "",
+                "confidence": str(det["confidence"]),
                 "threat_level": det["threat_level"],
-                "latitude": det["latitude"],
-                "longitude": det["longitude"],
-                "distance_meters": det.get("distance_meters"),
-                "rotator_heading": det.get("rotator_heading"),
-                "image_snapshot_path": det.get("image_snapshot_path"),
-                "detected_at": det["detected_at"]  # Crucial: Preserves original forest detection time!
+                "latitude": str(det["latitude"]),
+                "longitude": str(det["longitude"]),
+                "distance_meters": str(det.get("distance_meters") or 300),
+                "rotator_heading": str(det.get("rotator_heading") or 145),
+                "image_snapshot_path": det.get("image_snapshot_path") or "",
+                "detected_at": str(det["detected_at"])  # Crucial: Preserves original forest detection time!
             }
+
+            img_path = det.get("image_snapshot_path")
+            file_to_send = None
+            if img_path:
+                p = Path(img_path)
+                if not p.is_absolute():
+                    clean_rel = img_path.lstrip("/\\")
+                    p = root_dir / clean_rel
+                if p.exists() and p.is_file():
+                    file_to_send = p
+
             try:
-                resp = requests.post(url, json=payload, timeout=4)
+                if file_to_send:
+                    with open(file_to_send, "rb") as f:
+                        files = {"snapshot": (file_to_send.name, f, "image/jpeg")}
+                        resp = requests.post(url, data=payload, files=files, timeout=6)
+                else:
+                    resp = requests.post(url, json=payload, timeout=4)
+
                 if resp.status_code in (200, 201):
                     mark_detection_synced(det["id"])
                     synced_count += 1

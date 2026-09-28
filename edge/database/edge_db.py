@@ -23,20 +23,6 @@ def init_edge_db():
         conn.executescript(f.read())
         
     cursor = conn.cursor()
-    # Seed default local contacts if empty
-    cursor.execute("SELECT COUNT(*) as cnt FROM local_contacts")
-    if cursor.fetchone()["cnt"] == 0:
-        default_contacts = [
-            ("Sanjay Deshmukh (Ranger)", "+919823045612", "Rampur", "forest_ranger"),
-            ("Ramesh Patil (Sarpanch)", "+919422188901", "Rampur", "sarpanch"),
-            ("Sunita Gawande", "+919765411234", "Rampur", "villager"),
-            ("Ganesh Tekam", "+919970066543", "Shivpuri", "villager")
-        ]
-        cursor.executemany(
-            "INSERT INTO local_contacts (full_name, phone_number, village_name, role) VALUES (?, ?, ?, ?)",
-            default_contacts
-        )
-        conn.commit()
     conn.close()
 
 def log_local_detection(node_code, species, scientific_name, confidence, threat_level, lat, lon, distance_m, heading, img_path):

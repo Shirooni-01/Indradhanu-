@@ -86,9 +86,9 @@
                 <!-- Three Precision Graphical Instruments -->
                 <div class="cam-hud-instruments">
                     
-                    <!-- Instrument 1: Compass Radar Bearing -->
+                    <!-- Instrument 1: Compass Bearing -->
                     <div class="hud-instrument-box">
-                        <span class="hud-inst-title"><i class="fa-solid fa-compass"></i> Pan-Tilt Bearing</span>
+                        <span class="hud-inst-title"><i class="fa-solid fa-compass"></i> Compass Bearing</span>
                         <div class="compass-dial-wrap">
                             <svg class="compass-dial-svg" viewBox="0 0 56 56">
                                 <circle cx="28" cy="28" r="26" fill="none" stroke="#24332B" stroke-width="1.5"></circle>
@@ -97,7 +97,7 @@
                                 <text x="49" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">E</text>
                                 <text x="28" y="51" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">S</text>
                                 <text x="7" y="30" fill="#555" font-size="6" font-family="JetBrains Mono" text-anchor="middle">W</text>
-                                <!-- Rotating Needle & Sweep Wedge -->
+                                <!-- Fixed Needle & Sweep Wedge -->
                                 <g class="compass-needle-layer" style="transform: rotate({{ heading }}deg); transform-origin: 28px 28px;">
                                     <path d="M28 28 L20 6 A26 26 0 0 1 36 6 Z" fill="rgba(63, 166, 107, 0.2)"></path>
                                     <line x1="28" y1="28" x2="28" y2="4" stroke="#3fa66b" stroke-width="2" stroke-linecap="round"></line>
@@ -105,24 +105,17 @@
                                 </g>
                             </svg>
                         </div>
-                        <span class="hud-inst-readout font-mono text-link">{{ heading }}° Azimuth</span>
+                        <span class="hud-inst-readout font-mono text-link">{{ heading }}° Fixed Bearing</span>
                     </div>
 
-                    <!-- Instrument 2: Thermal Optical Heatmap Matrix -->
+                    <!-- Instrument 2: Optical Video Sensor -->
                     <div class="hud-instrument-box">
-                        <span class="hud-inst-title"><i class="fa-solid fa-camera"></i> Thermal Array</span>
-                        <div class="thermal-matrix-wrap">
-                            <div class="thermal-matrix-grid" title="Focal Plane Array: 768/768 Active Pixels (100% OK)">
-                                <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                                <div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                                <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div>
-                                <div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                            </div>
-                            <div class="thermal-temp-bar">
-                                <div class="thermal-temp-fill"></div>
-                            </div>
+                        <span class="hud-inst-title"><i class="fa-solid fa-camera"></i> Optical Camera</span>
+                        <div style="height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                            <i class="fa-solid fa-video text-primary" style="font-size: 20px;"></i>
+                            <span class="font-mono text-muted" style="font-size: 10px;">USB UVC /dev/video0</span>
                         </div>
-                        <span class="hud-inst-readout font-mono text-success">31.4°C · 100% OK</span>
+                        <span class="hud-inst-readout font-mono text-success">ONLINE · 640x480</span>
                     </div>
 
                     <!-- Instrument 3: Battery & Solar Energy Meter -->
@@ -169,9 +162,6 @@
                     <div class="cam-hud-actions">
                         <button class="btn btn-outline btn-sm btn-inspect-health" data-node="{{ n.node_code }}" style="padding: 5px 12px;">
                             <i class="fa-solid fa-chart-line"></i> Deep Diagnostics
-                        </button>
-                        <button class="btn btn-primary btn-sm btn-calibrate-direct" data-node="{{ n.node_code }}" style="padding: 5px 12px;">
-                            <i class="fa-solid fa-compass"></i> Calibrate
                         </button>
                     </div>
                 </div>
@@ -290,10 +280,10 @@
         }
 
         document.getElementById('btn-manual-sync')?.addEventListener('click', () => {
-            fetch('/api/offline/toggle', { method: 'POST' })
+            fetch('/api/offline/flush', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
-                    showTemporaryNotification(`Synced & flushed offline queue.`, 'success');
+                    showTemporaryNotification(`Synced & flushed offline queue (${data.flushed_count || 0} items).`, 'success');
                 });
         });
     });

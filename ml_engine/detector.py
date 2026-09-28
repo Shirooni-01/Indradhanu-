@@ -31,20 +31,6 @@ SPECIES_TAXONOMY = {
         "threat_level": "CRITICAL",
         "color_bgr": (0, 215, 255),    # Yellow
         "badge_color": "#eab308"
-    },
-    2: {
-        "common_name": "Indian Sloth Bear",
-        "scientific_name": "Melursus ursinus",
-        "threat_level": "HIGH",
-        "color_bgr": (255, 100, 0),    # Blue / Cyan
-        "badge_color": "#3b82f6"
-    },
-    3: {
-        "common_name": "Asiatic Lion",
-        "scientific_name": "Panthera leo persica",
-        "threat_level": "CRITICAL",
-        "color_bgr": (0, 255, 255),
-        "badge_color": "#fbbf24"
     }
 }
 
@@ -256,41 +242,3 @@ class IndradhanuDetector:
 
         return detections, annotated, latency, web_path
 
-    def run_random_test_sample(self):
-        """
-        Picks a random test image from the dataset, runs inference,
-        saves the snapshot to static/snapshots/, and returns structured detection data.
-        """
-        test_dir = self.root_dir / "Indradhanu_Dataset" / "images" / "test"
-        if not test_dir.exists():
-            return None
-
-        test_images = list(test_dir.glob("*.jpg"))
-        if not test_images:
-            return None
-
-        # Pick random test image
-        chosen = random.choice(test_images)
-        detections, annotated, latency, web_path = self.predict_image_file(chosen, conf_thresh=0.45)
-
-        if not detections:
-            # Fallback to another image that has a target
-            for candidate in random.sample(test_images, min(10, len(test_images))):
-                detections, annotated, latency, web_path = self.predict_image_file(candidate, conf_thresh=0.45)
-                if detections:
-                    break
-
-        if not detections:
-            return None
-
-        primary = detections[0]
-        return {
-            "species": primary["species"],
-            "scientific_name": primary["scientific_name"],
-            "threat_level": primary["threat_level"],
-            "confidence": primary["confidence"],
-            "latency_ms": latency,
-            "web_snapshot_path": web_path or "/static/snapshots/tiger_sample.jpg",
-            "bbox": primary["bbox"],
-            "all_detections": detections
-        }

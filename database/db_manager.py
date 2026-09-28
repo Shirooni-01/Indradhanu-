@@ -146,31 +146,13 @@ def init_db():
             cursor.execute("UPDATE detections SET reported_at = detected_at WHERE reported_at IS NULL")
             conn.commit()
 
-    # Seed initial contacts if empty
-    cursor.execute("SELECT COUNT(*) as cnt FROM villager_contacts")
-    row = cursor.fetchone()
-    cnt = row["cnt"] if isinstance(row, dict) or hasattr(row, "keys") else row[0]
-    if cnt == 0:
-        seed_contacts = [
-            ("Sanjay Deshmukh", "+919823045612", "Rampur", "forest_ranger"),
-            ("Ramesh Patil (Sarpanch)", "+919422188901", "Rampur", "sarpanch"),
-            ("Sunita Gawande", "+919765411234", "Rampur", "villager"),
-            ("Ganesh Tekam", "+919970066543", "Shivpuri", "villager"),
-            ("Vikram Shinde", "+919158833219", "Borpada", "forest_ranger")
-        ]
-        sql = "INSERT INTO villager_contacts (full_name, phone_number, village_name, role) VALUES (%s, %s, %s, %s)" if IS_POSTGRES else "INSERT INTO villager_contacts (full_name, phone_number, village_name, role) VALUES (?, ?, ?, ?)"
-        cursor.executemany(sql, seed_contacts)
-        conn.commit()
-
-    # Seed initial camera nodes if empty
+    # Seed primary camera node NODE-01 if empty
     cursor.execute("SELECT COUNT(*) as cnt FROM camera_nodes")
     row = cursor.fetchone()
     cnt = row["cnt"] if isinstance(row, dict) or hasattr(row, "keys") else row[0]
     if cnt == 0:
         seed_nodes = [
-            ("NODE-01", "Tadoba North Perimeter Tower", "Sector 1 (Rampur Buffer)", 21.1458, 79.0882, "Thermal IR (MLX90640)", 1, 145, 88, "ONLINE_ACTIVE"),
-            ("NODE-02", "Rampur East Buffer Tower", "Sector 1 (Rampur Buffer)", 21.1410, 79.0940, "Thermal IR + Night Vision", 1, 210, 94, "STANDBY"),
-            ("NODE-03", "Shivpuri West Fringe Tower", "Sector 2 (Shivpuri Fringe)", 21.1495, 79.0790, "Thermal IR (Seek Compact)", 1, 90, 79, "STANDBY")
+            ("NODE-01", "Tadoba North Perimeter Tower", "Sector 1 (Rampur Buffer)", 21.1458, 79.0882, "Optical USB Camera", 0, 145, 88, "ONLINE_ACTIVE")
         ]
         sql = """
             INSERT INTO camera_nodes 
@@ -182,29 +164,6 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         cursor.executemany(sql, seed_nodes)
-        conn.commit()
-
-    # Seed initial detections if empty
-    cursor.execute("SELECT COUNT(*) as cnt FROM detections")
-    row = cursor.fetchone()
-    cnt = row["cnt"] if isinstance(row, dict) or hasattr(row, "keys") else row[0]
-    if cnt == 0:
-        seed_detections = [
-            ("Tiger", "Panthera tigris", 94.8, "CRITICAL", 21.1441, 79.0865, 280, 145, "/static/snapshots/tiger_sample.jpg", "NODE-01"),
-            ("Leopard", "Panthera pardus", 91.2, "CRITICAL", 21.1468, 79.0845, 390, 145, "/static/snapshots/leopard_sample.jpg", "NODE-01"),
-            ("Indian Sloth Bear", "Melursus ursinus", 88.5, "HIGH", 21.1478, 79.0910, 450, 145, "/static/snapshots/bear_sample.jpg", "NODE-02"),
-            ("Lion", "Panthera leo persica", 93.1, "CRITICAL", 21.1415, 79.0895, 320, 145, "/static/snapshots/lion_sample.jpg", "NODE-03")
-        ]
-        sql = """
-            INSERT INTO detections 
-            (species, scientific_name, confidence, threat_level, latitude, longitude, distance_meters, rotator_heading, image_snapshot_path, node_code)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """ if IS_POSTGRES else """
-            INSERT INTO detections 
-            (species, scientific_name, confidence, threat_level, latitude, longitude, distance_meters, rotator_heading, image_snapshot_path, node_code)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        cursor.executemany(sql, seed_detections)
         conn.commit()
 
     conn.close()
@@ -293,6 +252,56 @@ def get_recent_detections(limit=30):
 def get_contacts():
     return execute_query("SELECT * FROM villager_contacts WHERE is_active = 1 ORDER BY id ASC", fetchall=True)
 
+def add_contact(full_name, phone_number, village_name, role="villager"):
+    """Adds a new contact to villager_contacts table."""
+    sql = "INSERT INTO villager_contacts (full_name, phone_number, village_name, role, is_active) VALUES (?, ?, ?, ?, 1)"
+    if IS_POSTGRES:
+        sql += " RETURNING id"
+    res = execute_query(sql, (full_name, phone_number, village_name, role), commit=True)
+    sync_contacts_to_edge()
+    return res
+
+def update_contact(contact_id, full_name, phone_number, village_name, role="villager"):
+    """Updates an existing contact's details."""
+    sql = "UPDATE villager_contacts SET full_name = ?, phone_number = ?, village_name = ?, role = ? WHERE id = ?"
+    res = execute_query(sql, (full_name, phone_number, village_name, role, contact_id), commit=True)
+    sync_contacts_to_edge()
+    return res
+
+def delete_contact(contact_id):
+    """Deletes or deactivates a contact."""
+    sql = "DELETE FROM villager_contacts WHERE id = ?"
+    res = execute_query(sql, (contact_id,), commit=True)
+    sync_contacts_to_edge()
+    return res
+
+def sync_contacts_to_edge():
+    """Synchronizes central database contacts to edge SQLite database."""
+    try:
+        edge_db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "edge", "database", "edge.db")
+        if not os.path.exists(edge_db_path):
+            return
+        contacts = get_contacts()
+        conn = sqlite3.connect(edge_db_path)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM local_contacts")
+        for c in contacts:
+            cur.execute(
+                "INSERT INTO local_contacts (id, full_name, phone_number, village_name, role, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+                (c["id"], c["full_name"], c["phone_number"], c["village_name"], c["role"], c.get("is_active", 1))
+            )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[Contact Sync Error] Could not sync contacts to edge.db: {e}")
+
+def update_node_location(node_code, lat, lon):
+    """Updates latitude and longitude coordinates of a camera node."""
+    sql = "UPDATE camera_nodes SET latitude = ?, longitude = ? WHERE node_code = ?"
+    if IS_POSTGRES:
+        sql = "UPDATE camera_nodes SET latitude = %s, longitude = %s WHERE node_code = %s"
+    return execute_query(sql, (lat, lon, node_code), commit=True)
+
 def get_camera_nodes():
     return execute_query("SELECT * FROM camera_nodes ORDER BY id ASC", fetchall=True)
 
@@ -313,9 +322,16 @@ def queue_offline_alert(detection_id, phone, message):
 def flush_offline_queue():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) as cnt FROM alert_fallback_queue WHERE status = 'QUEUED_OFFLINE'")
-    row = cursor.fetchone()
-    pending_cnt = row["cnt"] if isinstance(row, dict) else row[0]
+    cursor.execute("SELECT * FROM alert_fallback_queue WHERE status = 'QUEUED_OFFLINE'")
+    rows = cursor.fetchall()
+    pending = [dict(r) for r in rows]
+    pending_cnt = len(pending)
+
+    for item in pending:
+        phone = item.get("recipient_phone")
+        msg = item.get("alert_message")
+        print(f"[SMS Gateway Flush 🚀] Dispatched queued alert to {phone}: '{msg[:45]}...'")
+
     cursor.execute("UPDATE alert_fallback_queue SET status = 'DELIVERED', dispatched_at = CURRENT_TIMESTAMP WHERE status = 'QUEUED_OFFLINE'")
     conn.commit()
     conn.close()

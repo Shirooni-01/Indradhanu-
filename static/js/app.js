@@ -7,106 +7,11 @@ let offlineQueueCount = 0;
 let isSoundMuted = false;
 let currentFilter = 'all';
 
-// Mock Wildlife Sighting Records with complete surveillance telemetry
-let sightingsData = [
-    {
-        id: 1,
-        species: 'Tiger',
-        scientific: 'Panthera tigris',
-        confidence: 94.8,
-        lat: 21.1441,
-        lon: 79.0865,
-        distance_meters: 280,
-        timestamp: '2026-09-19 21:41:33 IST',
-        detected_at: '2026-09-19 21:41:33 IST',
-        reported_at: '2026-09-19 21:41:35 IST',
-        node_code: 'NODE-01',
-        node_name: 'Tadoba North Perimeter Tower',
-        camera_type: 'Thermal IR (MLX90640 32x24 Array)',
-        rotator_heading: 145,
-        sector: 'Sector 1 (Rampur Buffer)',
-        date: 'Today',
-        image_path: '/static/snapshots/tiger_sample.jpg',
-        threat_level: 'CRITICAL',
-        sms_status: 'DELIVERED',
-        sms_count: 45
-    },
-    {
-        id: 2,
-        species: 'Leopard',
-        scientific: 'Panthera pardus',
-        confidence: 93.9,
-        lat: 21.14687,
-        lon: 79.08640,
-        distance_meters: 406,
-        timestamp: '2026-09-19 19:12:05 IST',
-        detected_at: '2026-09-19 19:12:05 IST',
-        reported_at: '2026-09-19 19:12:07 IST',
-        node_code: 'NODE-01',
-        node_name: 'Tadoba North Perimeter Tower',
-        camera_type: 'Thermal IR (MLX90640 32x24 Array)',
-        rotator_heading: 145,
-        sector: 'Sector 1 (Rampur Buffer)',
-        date: 'Today',
-        image_path: '/static/snapshots/leopard_sample.jpg',
-        threat_level: 'CRITICAL',
-        sms_status: 'DELIVERED',
-        sms_count: 42
-    },
-    {
-        id: 3,
-        species: 'Indian Sloth Bear',
-        scientific: 'Melursus ursinus',
-        confidence: 88.5,
-        lat: 21.1478,
-        lon: 79.0910,
-        distance_meters: 450,
-        timestamp: '2026-09-19 18:45:12 IST',
-        detected_at: '2026-09-19 18:45:12 IST',
-        reported_at: '2026-09-19 18:45:14 IST',
-        node_code: 'NODE-02',
-        node_name: 'Rampur East Buffer Tower',
-        camera_type: 'Thermal IR + Night Vision',
-        rotator_heading: 210,
-        sector: 'Sector 1 (Rampur Buffer)',
-        date: 'Today',
-        image_path: '/static/snapshots/bear_sample.jpg',
-        threat_level: 'HIGH',
-        sms_status: 'DELIVERED',
-        sms_count: 38
-    },
-    {
-        id: 4,
-        species: 'Lion',
-        scientific: 'Panthera leo persica',
-        confidence: 93.1,
-        lat: 21.1415,
-        lon: 79.0895,
-        distance_meters: 320,
-        timestamp: '2026-09-19 16:20:40 IST',
-        detected_at: '2026-09-19 16:20:40 IST',
-        reported_at: '2026-09-19 16:20:42 IST',
-        node_code: 'NODE-03',
-        node_name: 'Shivpuri West Fringe Tower',
-        camera_type: 'Thermal IR (Seek Compact)',
-        rotator_heading: 90,
-        sector: 'Sector 2 (Shivpuri Fringe)',
-        date: 'Today',
-        image_path: '/static/snapshots/lion_sample.jpg',
-        threat_level: 'CRITICAL',
-        sms_status: 'DELIVERED',
-        sms_count: 45
-    }
-];
+// Sighting records loaded live from SQLite database
+let sightingsData = [];
 
-// Contacts Data
-let contactsData = [
-    { id: 1, name: 'Sanjay Deshmukh', phone: '+91 98230 45612', village: 'Rampur (Sector 1)', role: 'forest_ranger', channel: 'SMS + Alert Post', status: 'Active' },
-    { id: 2, name: 'Ramesh Patil (Sarpanch)', phone: '+91 94221 88901', village: 'Rampur (Sector 1)', role: 'sarpanch', channel: 'Priority SMS', status: 'Active' },
-    { id: 3, name: 'Sunita Gawande', phone: '+91 97654 11234', village: 'Rampur (Sector 1)', role: 'villager', channel: 'Broadcast SMS', status: 'Active' },
-    { id: 4, name: 'Ganesh Tekam', phone: '+91 99700 66543', village: 'Shivpuri (Sector 2)', role: 'villager', channel: 'Broadcast SMS', status: 'Active' },
-    { id: 5, name: 'Vikram Shinde', phone: '+91 91588 33219', village: 'Borpada (Sector 3)', role: 'forest_ranger', channel: 'SMS + Siren', status: 'Active' }
-];
+// Contacts loaded live from SQLite database
+let contactsData = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     initClock();
@@ -122,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDetectionsFromDB();
 
     if (document.getElementById('contacts-page-table-body')) {
-        renderContactsFullTable();
+        loadContactsFromDB();
         initContactsSearch();
     }
 
@@ -404,9 +309,7 @@ function sendDesktopNotification(sighting) {
    ========================================================================== */
 const SPECIES_POOL = [
     { name: 'Tiger', scientific: 'Panthera tigris', threat: 'CRITICAL', img: '/static/snapshots/tiger_sample.jpg' },
-    { name: 'Leopard', scientific: 'Panthera pardus', threat: 'CRITICAL', img: '/static/snapshots/leopard_sample.jpg' },
-    { name: 'Indian Sloth Bear', scientific: 'Melursus ursinus', threat: 'HIGH', img: '/static/snapshots/bear_sample.jpg' },
-    { name: 'Lion', scientific: 'Panthera leo', threat: 'CRITICAL', img: '/static/snapshots/lion_sample.jpg' }
+    { name: 'Leopard', scientific: 'Panthera pardus', threat: 'CRITICAL', img: '/static/snapshots/leopard_sample.jpg' }
 ];
 
 let simCounter = 0;
@@ -1054,6 +957,30 @@ function renderHistoryPageGrid() {
 /* ==========================================================================
    PAGE 3: VILLAGER & AUTHORITY DIRECTORY
    ========================================================================== */
+function loadContactsFromDB() {
+    fetch('/api/contacts')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && Array.isArray(data.contacts)) {
+                contactsData = data.contacts.map(c => ({
+                    id: c.id,
+                    name: c.full_name || c.name,
+                    phone: c.phone_number || c.phone,
+                    village: c.village_name || c.village || 'Rampur',
+                    role: c.role || 'villager',
+                    channel: c.role === 'forest_ranger' ? 'SMS + Siren' : (c.role === 'sarpanch' ? 'Priority SMS' : 'Broadcast SMS'),
+                    status: c.is_active !== 0 ? 'Active' : 'Inactive'
+                }));
+                const query = document.getElementById('contact-search-input')?.value.toLowerCase() || '';
+                renderContactsFullTable(query);
+            }
+        })
+        .catch(err => {
+            console.warn('[Contacts] Failed to fetch contacts:', err);
+            renderContactsFullTable();
+        });
+}
+
 function initContactsSearch() {
     document.getElementById('contact-search-input')?.addEventListener('input', (e) => {
         const query = e.target.value.toLowerCase();
@@ -1070,22 +997,30 @@ function initContactsSearch() {
 
     document.getElementById('form-add-contact')?.addEventListener('submit', (e) => {
         e.preventDefault();
-        const name = document.getElementById('contact-name').value;
-        const phone = document.getElementById('contact-phone').value;
+        const name = document.getElementById('contact-name').value.trim();
+        const phone = document.getElementById('contact-phone').value.trim();
         const village = document.getElementById('contact-village').value;
         const role = document.getElementById('contact-role').value;
 
-        contactsData.push({
-            id: Date.now(),
-            name, phone, village, role,
-            channel: 'Broadcast SMS',
-            status: 'Active'
+        fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_name: name, phone_number: phone, village_name: village, role: role })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                e.target.reset();
+                document.getElementById('modal-add-contact')?.classList.add('hidden');
+                loadContactsFromDB();
+                showTemporaryNotification(`Registered ${name} into village SMS alert pool.`, 'success');
+            } else {
+                showTemporaryNotification(data.message || 'Error saving contact.', 'danger');
+            }
+        })
+        .catch(() => {
+            showTemporaryNotification('Network error saving contact.', 'danger');
         });
-
-        e.target.reset();
-        document.getElementById('modal-add-contact')?.classList.add('hidden');
-        renderContactsFullTable();
-        showTemporaryNotification(`Registered ${name} into village SMS alert pool.`, 'success');
     });
 }
 
@@ -1119,10 +1054,13 @@ function renderContactsFullTable(searchQuery = '') {
             <td><i class="fa-solid fa-tower-broadcast text-info"></i> ${c.channel}</td>
             <td><span class="text-success"><i class="fa-solid fa-circle-check"></i> ${c.status}</span></td>
             <td style="white-space: nowrap;">
-                <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px; margin-right: 6px;" onclick="editContactRecord(${c.id})" title="Edit Villager">
+                <button class="btn btn-warning btn-sm" style="padding: 4px 8px; font-size: 11px; margin-right: 6px;" onclick="testSmsToContact('${c.phone}', '${c.name.replace(/'/g, "\\'")}')" title="Send live test SMS to this contact">
+                    <i class="fa-solid fa-paper-plane"></i> TEST SMS
+                </button>
+                <button class="btn btn-outline btn-sm" style="padding: 4px 8px; font-size: 11px; margin-right: 6px;" onclick="editContactRecord(${c.id})" title="Edit Villager">
                     <i class="fa-solid fa-user-pen text-link"></i> EDIT
                 </button>
-                <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="deleteContactRecord(${c.id})" title="Delete Villager">
+                <button class="btn btn-outline btn-sm" style="padding: 4px 8px; font-size: 11px;" onclick="deleteContactRecord(${c.id})" title="Delete Villager">
                     <i class="fa-solid fa-trash-can text-danger"></i> DELETE
                 </button>
             </td>
@@ -1205,20 +1143,25 @@ function initEditContactModal() {
         const village = document.getElementById('edit-contact-village')?.value;
         const role = document.getElementById('edit-contact-role')?.value;
 
-        const target = contactsData.find(c => c.id === id);
-        if (target) {
-            target.name = name;
-            target.phone = phone;
-            target.village = village;
-            target.role = role;
-
+        fetch(`/api/contacts/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_name: name, phone_number: phone, village_name: village, role: role })
+        })
+        .then(res => res.json())
+        .then(data => {
             dismissEditModal();
-            const currentSearch = document.getElementById('contact-search-input')?.value.toLowerCase() || '';
-            renderContactsFullTable(currentSearch);
-            showTemporaryNotification(`Updated contact details for ${name}.`, 'success');
-        } else {
+            if (data.success) {
+                loadContactsFromDB();
+                showTemporaryNotification(`Updated contact details for ${name}.`, 'success');
+            } else {
+                showTemporaryNotification(data.message || 'Error updating contact.', 'danger');
+            }
+        })
+        .catch(() => {
             dismissEditModal();
-        }
+            showTemporaryNotification('Network error updating contact.', 'danger');
+        });
     });
 }
 
@@ -1260,10 +1203,19 @@ function initDeleteConfirmation() {
     btnConfirm?.addEventListener('click', () => {
         if (pendingDeleteContactId !== null) {
             const idToDelete = pendingDeleteContactId;
-            contactsData = contactsData.filter(c => c.id !== idToDelete);
-            renderContactsFullTable();
-            showTemporaryNotification('Village contact removed from directory.', 'warning');
-            dismissDeleteModal();
+            fetch(`/api/contacts/${idToDelete}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                dismissDeleteModal();
+                loadContactsFromDB();
+                showTemporaryNotification('Village contact removed from directory.', 'warning');
+            })
+            .catch(() => {
+                dismissDeleteModal();
+                showTemporaryNotification('Network error deleting contact.', 'danger');
+            });
         }
     });
 
@@ -1364,11 +1316,41 @@ function initModals() {
 }
 
 function triggerManualAlert() {
-    const speciesName = currentInspectedSighting?.species || 'Predator';
+    const speciesName = currentInspectedSighting?.species || 'Bengal Tiger';
     const nodeCode = currentInspectedSighting?.node_code || 'NODE-01';
+    const scientificName = currentInspectedSighting?.scientific || 'Panthera tigris';
+    const threatLevel = currentInspectedSighting?.threat_level || 'CRITICAL';
+    const distanceM = currentInspectedSighting?.distance_meters || 280;
 
-    // Show temporary toast notification
-    showTemporaryNotification(`[MANUAL ALERT DISPATCHED] Emergency broadcast initiated by Forest Officer for ${speciesName} (${nodeCode}) sent to 42 registered villagers & ranger team.`, 'warning');
+    showTemporaryNotification(`[DISPATCHING SMS] Transmitting emergency alert to registered contacts...`, 'info');
+
+    fetch('/api/sms/dispatch-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            species: speciesName,
+            scientific_name: scientificName,
+            threat_level: threatLevel,
+            node_code: nodeCode,
+            distance_m: distanceM
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const hasSim = data.reports?.some(r => r.provider?.includes('SIMULATED'));
+            if (hasSim) {
+                showTemporaryNotification(`[SMS LOGGED] Alert processed for ${data.sent_count}/${data.total_contacts} contacts. (In Simulation mode. Enter Fast2SMS key in Contacts to receive real SMS on mobile).`, 'warning');
+            } else {
+                showTemporaryNotification(`[SMS DISPATCHED ✅] Emergency broadcast delivered to ${data.sent_count} contacts!`, 'success');
+            }
+        } else {
+            showTemporaryNotification(`[SMS Failed] ${data.message}`, 'danger');
+        }
+    })
+    .catch(err => {
+        showTemporaryNotification(`[SMS Error] Failed to reach server: ${err.message}`, 'danger');
+    });
 
     // Update header button
     const headerBtn = document.getElementById('btn-inspect-dispatch-sms');
@@ -1687,9 +1669,7 @@ function loadCameraNodes() {
 
 function renderFallbackNodes() {
     renderNodesGrid([
-        { node_code: 'NODE-01', node_name: 'Tadoba North Perimeter Tower', sector: 'Sector 1 (Rampur Buffer)', latitude: 21.1458, longitude: 79.0882, camera_type: 'Thermal IR (MLX90640 32x24)', rotator_heading: 145, battery_pct: 88, status: 'ONLINE_ACTIVE' },
-        { node_code: 'NODE-02', node_name: 'Rampur East Buffer Tower', sector: 'Sector 1 (Rampur Buffer)', latitude: 21.1410, longitude: 79.0940, camera_type: 'Thermal IR + Night Vision', rotator_heading: 210, battery_pct: 94, status: 'STANDBY' },
-        { node_code: 'NODE-03', node_name: 'Shivpuri West Fringe Tower', sector: 'Sector 2 (Shivpuri Fringe)', latitude: 21.1495, longitude: 79.0790, camera_type: 'Thermal IR (Seek Compact)', rotator_heading: 90, battery_pct: 79, status: 'STANDBY' }
+        { node_code: 'NODE-01', node_name: 'Tadoba North Perimeter Tower', sector: 'Sector 1 (Rampur Buffer)', latitude: 19.9152, longitude: 74.7279, camera_type: 'Optical USB Camera', rotator_heading: 145, battery_pct: 88, status: 'ONLINE_ACTIVE' }
     ]);
 }
 
@@ -1734,19 +1714,16 @@ function renderNodesGrid(nodes) {
                     <span class="font-mono text-info">${Number(node.latitude).toFixed(4)}°N, ${Number(node.longitude).toFixed(4)}°E</span>
                 </div>
                 <div class="node-spec-item">
-                    <label>Rotator Bearing</label>
-                    <span>${node.rotator_heading}° Heading</span>
+                    <label>Compass Bearing</label>
+                    <span>${node.rotator_heading}° Fixed Direction</span>
                 </div>
                 <div class="node-spec-item">
-                    <label>Solar Battery</label>
+                    <label>Power Reserves</label>
                     <span class="text-success"><i class="fa-solid fa-bolt"></i> ${node.battery_pct}% Charged</span>
                 </div>
             </div>
             <div class="node-card-actions">
-                <a href="/" class="btn btn-primary"><i class="fa-solid fa-map-location-dot"></i> View on Map</a>
-                <button class="btn btn-outline" onclick="showTemporaryNotification('Calibrated pan-tilt rotator on ${node.node_code}.', 'info')">
-                    <i class="fa-solid fa-compass"></i> Calibrate
-                </button>
+                <a href="/" class="btn btn-primary" style="width: 100%; justify-content: center;"><i class="fa-solid fa-map-location-dot"></i> View on Map</a>
             </div>
         `;
 
@@ -1886,22 +1863,6 @@ function initSystemHealthView() {
             return;
         }
 
-        const calBtn = e.target.closest('.btn-calibrate-direct');
-        if (calBtn) {
-            const nodeCode = calBtn.getAttribute('data-node');
-            if (nodeCode) {
-                calBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aligning...';
-                fetch(`/api/nodes/${nodeCode}/calibrate`, { method: 'POST' })
-                    .then(r => r.json())
-                    .then(data => {
-                        calBtn.innerHTML = '<i class="fa-solid fa-compass"></i> Calibrate';
-                        showTemporaryNotification(`CALIBRATED: Pan-tilt zero azimuth aligned on ${nodeCode}.`, 'success');
-                    })
-                    .catch(() => {
-                        calBtn.innerHTML = '<i class="fa-solid fa-compass"></i> Calibrate';
-                    });
-            }
-        }
     });
 }
 window.initSystemHealthView = initSystemHealthView;
@@ -1987,24 +1948,17 @@ function renderSystemCamerasHud(nodes) {
                             </g>
                         </svg>
                     </div>
-                    <span class="hud-inst-readout font-mono text-link">${heading}° Azimuth</span>
+                    <span class="hud-inst-readout font-mono text-link">${heading}° Fixed Bearing</span>
                 </div>
 
-                <!-- Instrument 2: Thermal Optical Heatmap Matrix -->
+                <!-- Instrument 2: Optical Video Sensor -->
                 <div class="hud-instrument-box">
-                    <span class="hud-inst-title"><i class="fa-solid fa-camera"></i> Thermal Array</span>
-                    <div class="thermal-matrix-wrap">
-                        <div class="thermal-matrix-grid" title="Focal Plane Array: 768/768 Active Pixels (100% OK)">
-                            <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                            <div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                            <div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel peak"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div>
-                            <div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel hot"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div><div class="thermal-pixel"></div>
-                        </div>
-                        <div class="thermal-temp-bar">
-                            <div class="thermal-temp-fill"></div>
-                        </div>
+                    <span class="hud-inst-title"><i class="fa-solid fa-camera"></i> Optical Camera</span>
+                    <div style="height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;">
+                        <i class="fa-solid fa-video text-primary" style="font-size: 20px;"></i>
+                        <span class="font-mono text-muted" style="font-size: 10px;">USB UVC /dev/video0</span>
                     </div>
-                    <span class="hud-inst-readout font-mono text-success">31.4°C · 100% OK</span>
+                    <span class="hud-inst-readout font-mono text-success">ONLINE · 640x480</span>
                 </div>
 
                 <!-- Instrument 3: Battery & Solar Energy Meter -->
@@ -2049,11 +2003,8 @@ function renderSystemCamerasHud(nodes) {
                 </div>
 
                 <div class="cam-hud-actions">
-                    <button class="btn btn-outline btn-sm btn-inspect-health" data-node="${n.node_code}" style="padding: 5px 12px;">
+                    <button class="btn btn-outline btn-sm btn-inspect-health" data-node="${n.node_code}" style="padding: 5px 12px; width: 100%; justify-content: center;">
                         <i class="fa-solid fa-chart-line"></i> Deep Diagnostics
-                    </button>
-                    <button class="btn btn-primary btn-sm btn-calibrate-direct" data-node="${n.node_code}" style="padding: 5px 12px;">
-                        <i class="fa-solid fa-compass"></i> Calibrate
                     </button>
                 </div>
             </div>
@@ -2446,3 +2397,356 @@ function renderNodeDiagnosticsDetails(diag) {
         diagModal?.classList.add('hidden');
     });
 }
+
+/* ==========================================================================
+   SMS ALERT GATEWAY & LIVE TEST CONTROLS
+   ========================================================================== */
+function fetchSmsGatewayStatus() {
+    fetch('/api/sms/config')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const modeBadge = document.getElementById('sms-gateway-mode-badge');
+                const keyBadge = document.getElementById('sms-gateway-key-badge');
+                const helperText = document.getElementById('sms-status-helper-text');
+                const phoneInput = document.getElementById('test-sms-phone-input');
+
+                if (phoneInput && data.test_mobile_number) {
+                    phoneInput.value = data.test_mobile_number;
+                }
+
+                if (modeBadge) {
+                    if (data.sms_mode === 'FAST2SMS') {
+                        modeBadge.innerHTML = '<i class="fa-solid fa-bolt"></i> FAST2SMS (India Quick SMS)';
+                        modeBadge.className = 'badge-active font-mono';
+                    } else if (data.sms_mode === 'TWILIO') {
+                        modeBadge.innerHTML = '<i class="fa-solid fa-cloud"></i> TWILIO (Global Cloud)';
+                        modeBadge.className = 'badge-active font-mono';
+                    } else if (data.sms_mode === 'GSM_MODEM') {
+                        modeBadge.innerHTML = '<i class="fa-solid fa-sim-card"></i> HARDWARE GSM MODEM';
+                        modeBadge.className = 'badge-active font-mono';
+                    } else {
+                        modeBadge.innerHTML = '<i class="fa-solid fa-terminal"></i> SIMULATION (Console Log)';
+                        modeBadge.className = 'badge-idle font-mono';
+                    }
+                }
+
+                if (keyBadge) {
+                    if (data.sms_mode === 'FAST2SMS') {
+                        if (data.has_fast2sms_key) {
+                            keyBadge.innerHTML = '<i class="fa-solid fa-circle-check text-success"></i> API Key Active';
+                            keyBadge.className = 'badge-online font-mono';
+                            if (helperText) {
+                                helperText.innerHTML = '<span class="text-success"><i class="fa-solid fa-circle-check"></i> Fast2SMS Live Cloud API is configured. Emergency SMS alerts will be transmitted directly to registered mobile phones.</span>';
+                            }
+                        } else {
+                            keyBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-warning"></i> Key Missing (Simulated)';
+                            keyBadge.className = 'badge-idle font-mono';
+                            if (helperText) {
+                                helperText.innerHTML = '<span class="text-warning">⚠️ Fast2SMS API Key not entered yet. Alerts will be simulated in server logs. Click "SMS Gateway API Settings" to enter your key for real delivery.</span>';
+                            }
+                        }
+                    } else if (data.sms_mode === 'TWILIO') {
+                        if (data.has_twilio_token) {
+                            keyBadge.innerHTML = '<i class="fa-solid fa-circle-check text-success"></i> Twilio Active';
+                            keyBadge.className = 'badge-online font-mono';
+                        } else {
+                            keyBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-warning"></i> Credentials Missing';
+                            keyBadge.className = 'badge-idle font-mono';
+                        }
+                    } else {
+                        keyBadge.innerHTML = '<i class="fa-solid fa-info-circle text-info"></i> Local Log';
+                        keyBadge.className = 'badge-idle font-mono';
+                    }
+                }
+            }
+        })
+        .catch(err => console.warn('[SMS] Could not fetch gateway status:', err));
+}
+
+window.openSmsSettingsModal = function() {
+    fetch('/api/sms/config')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('sms-mode-select');
+                if (select) select.value = data.sms_mode || 'FAST2SMS';
+                const sidInput = document.getElementById('cfg-twilio-sid');
+                if (sidInput) sidInput.value = data.twilio_account_sid || '';
+                const fromInput = document.getElementById('cfg-twilio-from');
+                if (fromInput) fromInput.value = data.twilio_from_number || '';
+                toggleSmsProviderFields();
+            }
+            document.getElementById('modal-sms-settings')?.classList.remove('hidden');
+        });
+};
+
+window.closeSmsSettingsModal = function() {
+    document.getElementById('modal-sms-settings')?.classList.add('hidden');
+};
+
+window.toggleSmsProviderFields = function() {
+    const mode = document.getElementById('sms-mode-select')?.value;
+    const fastFields = document.getElementById('fields-fast2sms');
+    const twilioFields = document.getElementById('fields-twilio');
+
+    if (fastFields) fastFields.style.display = (mode === 'FAST2SMS') ? 'block' : 'none';
+    if (twilioFields) twilioFields.style.display = (mode === 'TWILIO') ? 'block' : 'none';
+};
+
+window.saveSmsGatewayConfig = function(e) {
+    if (e) e.preventDefault();
+    const mode = document.getElementById('sms-mode-select')?.value;
+    const fastKey = document.getElementById('cfg-fast2sms-key')?.value.trim();
+    const twilioSid = document.getElementById('cfg-twilio-sid')?.value.trim();
+    const twilioToken = document.getElementById('cfg-twilio-token')?.value.trim();
+    const twilioFrom = document.getElementById('cfg-twilio-from')?.value.trim();
+
+    const payload = { sms_mode: mode };
+    if (fastKey) payload.fast2sms_api_key = fastKey;
+    if (twilioSid) payload.twilio_account_sid = twilioSid;
+    if (twilioToken) payload.twilio_auth_token = twilioToken;
+    if (twilioFrom) payload.twilio_from_number = twilioFrom;
+
+    fetch('/api/sms/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showTemporaryNotification('SMS Gateway settings updated successfully!', 'success');
+            closeSmsSettingsModal();
+            fetchSmsGatewayStatus();
+        } else {
+            showTemporaryNotification(`Failed to save settings: ${data.message}`, 'danger');
+        }
+    })
+    .catch(err => {
+        showTemporaryNotification(`Error saving settings: ${err.message}`, 'danger');
+    });
+};
+
+window.sendDirectTestSms = function() {
+    const phoneInput = document.getElementById('test-sms-phone-input');
+    const phone = phoneInput ? phoneInput.value.trim() : '+91 8010294703';
+    if (!phone) {
+        showTemporaryNotification('Please enter a valid mobile number for the test alert.', 'danger');
+        return;
+    }
+
+    showTemporaryNotification(`[DISPATCHING] Transmitting test alert to ${phone}...`, 'info');
+
+    fetch('/api/sms/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const res = data.result || {};
+        if (res.success) {
+            showTemporaryNotification(`[SMS DELIVERED ✅] Real test SMS sent to ${phone} via ${res.provider}!`, 'success');
+        } else {
+            showTemporaryNotification(`[SMS Status: ${res.provider}] ${res.detail}`, 'warning');
+        }
+    })
+    .catch(err => {
+        showTemporaryNotification(`[SMS Error] Failed to reach server: ${err.message}`, 'danger');
+    });
+};
+
+window.testSmsToContact = function(phone, name) {
+    showTemporaryNotification(`[DISPATCHING] Sending test alert to ${name} (${phone})...`, 'info');
+    fetch('/api/sms/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone })
+    })
+    .then(r => r.json())
+    .then(data => {
+        const res = data.result || {};
+        if (res.success) {
+            showTemporaryNotification(`[SMS DELIVERED ✅] Test SMS delivered to ${name} (${phone}) via ${res.provider}!`, 'success');
+        } else {
+            showTemporaryNotification(`[SMS Status: ${res.provider}] ${res.detail}`, 'warning');
+        }
+    })
+    .catch(err => {
+        showTemporaryNotification(`[SMS Error] ${err.message}`, 'danger');
+    });
+};
+
+/* ==========================================================================
+   EXACT SYSTEM LOCATION & BROWSER GEOLOCATION
+   ========================================================================== */
+function updateLocationDisplay(lat, lon, source = '') {
+    const textEl = document.getElementById('gps-lat-lon');
+    if (textEl && lat && lon) {
+        const srcTag = source === 'GPS_BROWSER' ? ' (GPS)' : '';
+        textEl.textContent = `${Number(lat).toFixed(4)}°N, ${Number(lon).toFixed(4)}°E${srcTag}`;
+    }
+}
+
+function initSystemLocation() {
+    // 1. Fetch current saved location from backend
+    fetch('/api/system/location')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.latitude && data.longitude) {
+                updateLocationDisplay(data.latitude, data.longitude, data.source);
+                const calibLat = document.getElementById('calib-lat');
+                const calibLon = document.getElementById('calib-lon');
+                if (calibLat) calibLat.value = data.latitude;
+                if (calibLon) calibLon.value = data.longitude;
+            }
+        })
+        .catch(err => console.warn('[Location] Failed to fetch system location:', err));
+
+    // 2. Automatically request high-accuracy system location from browser
+    triggerBrowserGPS(false);
+}
+
+window.triggerBrowserGPS = function(isUserInitiated = true) {
+    const statusEl = document.getElementById('gps-detection-status');
+    if (!('geolocation' in navigator)) {
+        if (statusEl) statusEl.innerHTML = '<span class="text-danger">Geolocation not supported by this browser.</span>';
+        if (isUserInitiated) showTemporaryNotification('Browser geolocation is not supported on this device.', 'danger');
+        return;
+    }
+
+    if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-info"></i> Querying high-accuracy GPS / Wi-Fi position...';
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const acc = pos.coords.accuracy || 10;
+            console.log(`[GPS] Exact system location detected: ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${acc.toFixed(0)}m)`);
+
+            const calibLat = document.getElementById('calib-lat');
+            const calibLon = document.getElementById('calib-lon');
+            if (calibLat) calibLat.value = lat;
+            if (calibLon) calibLon.value = lon;
+
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-success"><i class="fa-solid fa-circle-check"></i> Acquired: ${lat.toFixed(5)}°N, ${lon.toFixed(5)}°E (±${acc.toFixed(0)}m)</span>`;
+            }
+
+            // Sync with backend server
+            fetch('/api/system/location', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    latitude: lat,
+                    longitude: lon,
+                    accuracy: acc,
+                    source: 'GPS_BROWSER',
+                    auto_gps: true
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateLocationDisplay(lat, lon, 'GPS_BROWSER');
+                    if (isUserInitiated) {
+                        showTemporaryNotification(`[GPS CALIBRATED 📍] Station location set to ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E (±${acc.toFixed(0)}m)`, 'success');
+                        closeLocationCalibrator();
+                    }
+                    // Relocate Leaflet map if present
+                    if (typeof CAMERA_STATIONS !== 'undefined' && CAMERA_STATIONS['NODE-01']) {
+                        CAMERA_STATIONS['NODE-01'].coords = [lat, lon];
+                        if (typeof map !== 'undefined' && map) {
+                            map.setView([lat, lon], 15);
+                            if (typeof updateRadarCone === 'function') updateRadarCone(145);
+                            if (typeof stationMarkers !== 'undefined' && stationMarkers['NODE-01']) {
+                                stationMarkers['NODE-01'].setLatLng([lat, lon]);
+                            }
+                        }
+                    }
+                }
+            })
+            .catch(err => console.warn('[GPS] Backend sync failed:', err));
+        },
+        (err) => {
+            console.warn('[GPS] Browser location notice:', err.message);
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-warning"><i class="fa-solid fa-triangle-exclamation"></i> Browser location note: ${err.message}. You can enter coordinates manually below.</span>`;
+            }
+            if (isUserInitiated) {
+                showTemporaryNotification(`Could not acquire GPS: ${err.message}. Please enter coordinates manually.`, 'warning');
+            }
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+};
+
+window.openLocationCalibrator = function() {
+    fetch('/api/system/location')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const calibLat = document.getElementById('calib-lat');
+                const calibLon = document.getElementById('calib-lon');
+                if (calibLat) calibLat.value = data.latitude;
+                if (calibLon) calibLon.value = data.longitude;
+            }
+            document.getElementById('modal-calibrate-location')?.classList.remove('hidden');
+        });
+};
+
+window.closeLocationCalibrator = function() {
+    document.getElementById('modal-calibrate-location')?.classList.add('hidden');
+};
+
+window.saveCustomLocation = function(e) {
+    if (e) e.preventDefault();
+    const lat = parseFloat(document.getElementById('calib-lat')?.value);
+    const lon = parseFloat(document.getElementById('calib-lon')?.value);
+
+    if (isNaN(lat) || isNaN(lon)) {
+        showTemporaryNotification('Please enter valid numerical latitude and longitude.', 'danger');
+        return;
+    }
+
+    fetch('/api/system/location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            latitude: lat,
+            longitude: lon,
+            source: 'MANUAL'
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            updateLocationDisplay(lat, lon, 'MANUAL');
+            showTemporaryNotification(`Station coordinates set to ${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E`, 'success');
+            closeLocationCalibrator();
+            if (typeof CAMERA_STATIONS !== 'undefined' && CAMERA_STATIONS['NODE-01']) {
+                CAMERA_STATIONS['NODE-01'].coords = [lat, lon];
+                if (typeof map !== 'undefined' && map) {
+                    map.setView([lat, lon], 15);
+                    if (typeof updateRadarCone === 'function') updateRadarCone(145);
+                    if (typeof stationMarkers !== 'undefined' && stationMarkers['NODE-01']) {
+                        stationMarkers['NODE-01'].setLatLng([lat, lon]);
+                    }
+                }
+            }
+        } else {
+            showTemporaryNotification(`Error: ${data.message}`, 'danger');
+        }
+    })
+    .catch(err => {
+        showTemporaryNotification(`Error saving coordinates: ${err.message}`, 'danger');
+    });
+};
+
+// Auto-initialize system location and SMS gateway status on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initSystemLocation();
+    fetchSmsGatewayStatus();
+});
+
