@@ -1933,19 +1933,25 @@ i.fa-solid, i.fa-regular, i.fa-brands {
 /* Planted Camera Nodes HUD Grid */
 .cam-hud-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
 }
 
 .cam-hud-card {
     background: var(--color-surface-card);
     border: 1px solid var(--color-hairline);
     border-radius: var(--radius-card);
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.cam-hud-card:hover {
+    border-color: var(--color-border-focus);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .cam-hud-header {

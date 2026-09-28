@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initStationPanel();
     initModals();
     initDeleteConfirmation();
+    initEditContactModal();
 
     // Fetch permanent history from SQLite Database!
     loadDetectionsFromDB();
@@ -895,13 +896,107 @@ function renderContactsFullTable(searchQuery = '') {
             <td>${roleBadge}</td>
             <td><i class="fa-solid fa-tower-broadcast text-info"></i> ${c.channel}</td>
             <td><span class="text-success"><i class="fa-solid fa-circle-check"></i> ${c.status}</span></td>
-            <td>
-                <button class="btn btn-outline" style="padding:4px 8px; font-size:11px;" onclick="deleteContactRecord(${c.id})">
-                    <i class="fa-solid fa-trash-can text-danger"></i>
+            <td style="white-space: nowrap;">
+                <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px; margin-right: 6px;" onclick="editContactRecord(${c.id})" title="Edit Villager">
+                    <i class="fa-solid fa-user-pen text-link"></i> EDIT
+                </button>
+                <button class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px;" onclick="deleteContactRecord(${c.id})" title="Delete Villager">
+                    <i class="fa-solid fa-trash-can text-danger"></i> DELETE
                 </button>
             </td>
         `;
         tbody.appendChild(tr);
+    });
+}
+
+window.editContactRecord = function(id) {
+    const contact = contactsData.find(c => c.id === id);
+    if (!contact) return;
+
+    const modal = document.getElementById('modal-edit-contact');
+    const idInput = document.getElementById('edit-contact-id');
+    const nameInput = document.getElementById('edit-contact-name');
+    const phoneInput = document.getElementById('edit-contact-phone');
+    const villageSelect = document.getElementById('edit-contact-village');
+    const roleSelect = document.getElementById('edit-contact-role');
+
+    if (idInput) idInput.value = contact.id;
+    if (nameInput) nameInput.value = contact.name || '';
+    if (phoneInput) phoneInput.value = contact.phone || '';
+
+    if (villageSelect && contact.village) {
+        let matched = false;
+        for (let i = 0; i < villageSelect.options.length; i++) {
+            if (villageSelect.options[i].value.toLowerCase() === contact.village.toLowerCase() ||
+                contact.village.toLowerCase().includes(villageSelect.options[i].value.toLowerCase()) ||
+                villageSelect.options[i].value.toLowerCase().includes(contact.village.toLowerCase())) {
+                villageSelect.selectedIndex = i;
+                matched = true;
+                break;
+            }
+        }
+        if (!matched) {
+            const opt = new Option(contact.village, contact.village, true, true);
+            villageSelect.add(opt);
+        }
+    }
+
+    if (roleSelect && contact.role) {
+        roleSelect.value = contact.role;
+    }
+
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+};
+
+function initEditContactModal() {
+    const modal = document.getElementById('modal-edit-contact');
+    const btnCancel = document.getElementById('btn-cancel-edit-contact');
+    const btnClose = document.getElementById('btn-close-edit-contact');
+    const form = document.getElementById('form-edit-contact');
+
+    function dismissEditModal() {
+        if (modal) modal.classList.add('hidden');
+    }
+
+    btnCancel?.addEventListener('click', dismissEditModal);
+    btnClose?.addEventListener('click', dismissEditModal);
+
+    window.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            dismissEditModal();
+        }
+    });
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+            dismissEditModal();
+        }
+    });
+
+    form?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const id = Number(document.getElementById('edit-contact-id')?.value);
+        const name = document.getElementById('edit-contact-name')?.value.trim();
+        const phone = document.getElementById('edit-contact-phone')?.value.trim();
+        const village = document.getElementById('edit-contact-village')?.value;
+        const role = document.getElementById('edit-contact-role')?.value;
+
+        const target = contactsData.find(c => c.id === id);
+        if (target) {
+            target.name = name;
+            target.phone = phone;
+            target.village = village;
+            target.role = role;
+
+            dismissEditModal();
+            const currentSearch = document.getElementById('contact-search-input')?.value.toLowerCase() || '';
+            renderContactsFullTable(currentSearch);
+            showTemporaryNotification(`Updated contact details for ${name}.`, 'success');
+        } else {
+            dismissEditModal();
+        }
     });
 }
 
@@ -915,7 +1010,7 @@ window.deleteContactRecord = function(id) {
     const contact = contactsData.find(c => c.id === id);
 
     if (promptEl) {
-        promptEl.textContent = 'Are you sure you want to delete this village?';
+        promptEl.textContent = 'Are you sure you want to delete this villager?';
     }
     if (subEl && contact) {
         subEl.textContent = `Target: ${contact.name} (${contact.village} • ${contact.phone}) will be removed from directory.`;
