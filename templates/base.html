@@ -60,6 +60,12 @@
                     <span class="nav-name">Tactical GIS Map</span>
                 </a>
 
+                <a href="/camera" class="dock-nav-item {% if active_page == 'camera' %}active{% endif %}" title="Live AI Camera & Surveillance Feed">
+                    <i class="fa-solid fa-video"></i>
+                    <span class="nav-name">Live AI Camera</span>
+                    <span class="nav-counter-badge" id="dock-badge-camera" style="background: var(--color-primary); color: #000; font-weight: 700;">AI</span>
+                </a>
+
                 <a href="/history" class="dock-nav-item {% if active_page == 'history' %}active{% endif %}" title="Wildlife Sightings">
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     <span class="nav-name">Wildlife Sightings</span>
@@ -158,6 +164,28 @@
                 </div>
             </header>
 
+            <!-- GLOBAL REAL-TIME THREAT ALERT BANNER (Active across ALL pages) -->
+            <div class="threat-alert-banner hidden" id="global-threat-banner" style="position: sticky; top: 0; z-index: 1060; border-bottom: 2px solid var(--color-alert); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); margin-bottom: 2px;">
+                <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
+                    <div class="threat-icon" style="font-size: 26px; color: var(--color-alert);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="threat-details" style="flex: 1;">
+                        <h4 id="global-threat-title" style="color: #ef4444; margin: 0 0 2px 0; font-size: 16px; font-weight: 700; letter-spacing: 1px;">CRITICAL ALERT: TIGER DETECTED</h4>
+                        <p id="global-threat-desc" style="margin: 0; font-size: 13px; color: #cbd5e1;">Location: Tadoba North · Distance: ~280m · Verified &amp; Saved to Database.</p>
+                    </div>
+                </div>
+                <div class="threat-banner-actions" style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn btn-sm btn-primary" id="btn-global-inspect" title="Inspect Captured Snapshot Dossier">
+                        <i class="fa-solid fa-eye"></i> <span>Inspect Snapshot</span>
+                    </button>
+                    <a href="/" class="btn btn-sm btn-outline" id="btn-global-map" title="View on Tactical GIS Map">
+                        <i class="fa-solid fa-map-location-dot"></i> <span>View Map</span>
+                    </a>
+                    <button class="threat-dismiss" id="btn-global-dismiss" title="Dismiss Alert &amp; Silence Siren" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #fff; width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
             <!-- DYNAMIC PAGE CONTENT INJECTED HERE -->
             <main class="page-content">
                 {% block content %}{% endblock %}
@@ -165,6 +193,93 @@
 
         </div>
 
+    </div>
+
+    <!-- UNIVERSAL SNAPSHOT DOSSIER MODAL -->
+    <div class="modal-backdrop hidden" id="modal-snapshot">
+        <div class="modal-card modal-snapshot-card modal-fullscreen-dossier" id="snapshot-modal">
+            <div class="modal-header dossier-header">
+                <div class="dossier-header-left">
+                    <span class="dossier-category-tag"><i class="fa-solid fa-shield-cat"></i> PERIMETER SURVEILLANCE // FULL INSPECTION DOSSIER</span>
+                    <h3 id="snapshot-modal-title"><i class="fa-solid fa-paw"></i> Leopard - Thermal Verification Snapshot</h3>
+                </div>
+                <div class="dossier-header-actions">
+                    <span class="dossier-node-pill" id="dossier-node-pill"><i class="fa-solid fa-tower-broadcast"></i> NODE-01</span>
+                    <span class="dossier-auto-pill" id="dossier-auto-pill" title="Automatic Alert: System Generated">
+                        <i class="fa-solid fa-robot"></i> <span id="dossier-auto-status">AUTO ALERT: DISPATCHED</span>
+                    </span>
+                    <a href="/history" class="btn btn-outline btn-sm" id="btn-inspect-view-archive" title="View Wildlife Sightings">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Sightings
+                    </a>
+                    <button class="btn btn-warning btn-sm btn-manual-alert" id="btn-inspect-dispatch-sms" title="Manually Dispatch Emergency SMS Broadcast (Forest Officer Override)">
+                        <i class="fa-solid fa-paper-plane"></i> <span id="btn-manual-alert-text">MANUAL ALERT</span>
+                    </button>
+                    <button class="modal-close-btn" id="btn-close-snapshot" title="Close Dossier (Esc)">
+                        <i class="fa-solid fa-xmark"></i> <span>CLOSE</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body snapshot-modal-body dossier-modal-body">
+                <!-- Left Panel: Visual Sensor HUD & Snapshot Viewer -->
+                <div class="dossier-visual-column">
+                    <div class="snapshot-large-wrap" id="snapshot-hud-wrapper">
+                        <!-- Thermal Snapshot Image -->
+                        <img id="snapshot-modal-img" src="" alt="Wildlife Snapshot">
+                        
+                        <!-- HUD Tactical Corner Brackets -->
+                        <div class="hud-corner-bracket hud-tl"></div>
+                        <div class="hud-corner-bracket hud-tr"></div>
+                        <div class="hud-corner-bracket hud-bl"></div>
+                        <div class="hud-corner-bracket hud-br"></div>
+                        
+                        <!-- Top HUD Status -->
+                        <div class="hud-overlay-top">
+                            <span class="hud-rec-indicator"><span class="pulse-dot"></span> THERMAL-IR [16Hz]</span>
+                            <span class="hud-sensor-model" id="dossier-hud-sensor">MLX90640 32x24 UPX</span>
+                        </div>
+
+                        <!-- Thermal Heat Signature Badge -->
+                        <div class="hud-heat-signature-tag" id="dossier-hud-temp">
+                            <i class="fa-solid fa-fire-flame-curved"></i> 38.4°C [HEAT SIGNATURE DETECTED]
+                        </div>
+
+                        <!-- Target Focus Reticle -->
+                        <div class="hud-target-reticle">
+                            <div class="reticle-box">
+                                <span class="reticle-label" id="reticle-species-label">TARGET LOCKED</span>
+                            </div>
+                        </div>
+
+                        <!-- Bottom HUD Telemetry -->
+                        <div class="hud-overlay-bottom">
+                            <span id="dossier-hud-bearing"><i class="fa-solid fa-compass"></i> AZ: 145° SE</span>
+                            <span id="dossier-hud-node"><i class="fa-solid fa-camera"></i> NODE-01 TOWER</span>
+                        </div>
+                    </div>
+
+                    <!-- Visual Filter & Image Tools Bar -->
+                    <div class="dossier-image-toolbar">
+                        <div class="toolbar-label"><i class="fa-solid fa-sliders"></i> FILTER:</div>
+                        <div class="toolbar-filter-buttons">
+                            <button class="filter-btn active" data-img-filter="normal">THERMAL RAW</button>
+                            <button class="filter-btn" data-img-filter="ironbow">ENHANCED IR</button>
+                            <button class="filter-btn" data-img-filter="invert">INVERT</button>
+                            <button class="filter-btn" data-img-filter="contrast">CONTRAST</button>
+                        </div>
+                        <div class="toolbar-filepath" id="dossier-filepath" title="Raw snapshot storage path">
+                            <i class="fa-regular fa-file-image"></i> <span>/static/snapshots/...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Comprehensive Intelligence & Telemetry Cards -->
+                <div class="dossier-meta-column">
+                    <div class="snapshot-meta-details dossier-grid" id="snapshot-modal-meta">
+                        <!-- Dynamically populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- AUDIO SIREN FOR ALERTS -->

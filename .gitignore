@@ -1,4 +1,4 @@
-﻿# Python bytecode and cache
+# Python bytecode and cache
 __pycache__/
 *.py[cod]
 *.class
@@ -14,3 +14,34 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Datasets and Download Cache Archives (>21 GB)
+Indradhanu_Dataset/
+data_cache/
+*.tar.gz
+*.zip
+
+# YOLO Training Runs, Logs & Temporary Weights
+runs/
+test_results/
+ml_engine/weights/*
+!ml_engine/weights/indradhanu_best.pt
+yolo26n.pt
+yolov8n.pt
+
+# Runtime Surveillance Snapshots & Temporary Debug Images
+static/snapshots/auto_*.jpg
+static/snapshots/live_detection_*.jpg
+static/snapshots/verified_*.jpg
+static/cam0_debug.jpg
+static/cam1_debug.jpg
+static/camera_1_test.jpg
+static/iriun_live_feed.jpg
+static/latest_stream_frame.jpg
+static/test_cam_0.jpg
+static/test_cam_1.jpg
+tests/*.jpg
+
+# Database backups and config overrides
+database/*.bak
+database/camera_config.json

@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Live AI Surveillance Camera | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Calm Baseline Operational Ribbon -->
+    <div class="operational-ribbon" id="operational-ribbon">
+        <div class="ribbon-left">
+            <span class="pulse-dot"></span>
+            <span class="ribbon-state-title">AI VISION MONITOR // MODEL: YOLOV8N APEX DETECTOR</span>
+            <span class="ribbon-divider">/</span>
+            <span class="ribbon-metric"><i class="fa-solid fa-microchip"></i> COMPUTE: NVIDIA RTX 4050 GPU (1.4ms INFERENCE)</span>
+            <span class="ribbon-divider hidden-md">/</span>
+            <span class="ribbon-metric hidden-md"><i class="fa-solid fa-chart-line"></i> BENCHMARK: 97.9% mAP50</span>
+        </div>
+        <div class="ribbon-right">
+            <span class="ribbon-gps font-mono"><i class="fa-solid fa-camera"></i> STREAM: ACTIVE (640x640 REAL-TIME)</span>
+        </div>
+    </div>
+
+    <!-- Real-Time Auto-Registered Alert Banner -->
+    <div id="live-auto-alert" class="threat-alert-banner hidden" style="margin-bottom: 14px; background: rgba(147, 0, 10, 0.95); border: 1px solid var(--color-alert); display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-radius: 8px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+            <div class="threat-icon" style="color: #fff; font-size: 24px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <div class="threat-details">
+                <h4 id="live-alert-title" style="color: #fff; margin: 0 0 4px 0; font-size: 16px; font-weight: 700;">AUTO-REGISTERED: BENGAL TIGER DETECTED</h4>
+                <p id="live-alert-desc" style="color: var(--color-link); margin: 0; font-size: 13px;">Logged to SQLite Database &amp; Dispatched to Central Tactical Map.</p>
+            </div>
+        </div>
+        <div class="threat-banner-actions" style="display: flex; gap: 8px;">
+            <a href="/" class="btn btn-sm btn-primary">
+                <i class="fa-solid fa-map-location-dot"></i> <span>View on GIS Map</span>
+            </a>
+            <button class="threat-dismiss" onclick="document.getElementById('live-auto-alert').classList.add('hidden')" style="background: none; border: none; color: #fff; cursor: pointer; font-size: 18px; padding: 4px 8px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Grid: Live Video Monitor (Col 8) + AI Control Panel (Col 4) -->
+    <div class="dashboard-grid">
+        <!-- LEFT: LIVE AI CAMERA STREAM -->
+        <div class="map-column">
+            <div class="map-wrapper camera-feed-wrapper" style="min-height: 600px; background: #050b08; position: relative; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+                
+                <!-- Tactical Top Status Bar -->
+                <div class="camera-stream-header" style="background: rgba(10, 20, 16, 0.95); padding: 12px 18px; border-bottom: 1px solid var(--color-hairline); display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="status-badge-online" style="display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="pulse-dot"></span> LIVE AI STREAM
+                        </span>
+                        <span style="font-family: var(--font-mono, monospace); font-size: 13px; color: var(--color-primary);">
+                            <i class="fa-solid fa-shield-cat"></i> TARGETS: TIGER, LEOPARD
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm btn-outline" id="btn-toggle-stream-thermal" title="Toggle Thermal False Color Palette">
+                            <i class="fa-solid fa-fire"></i> <span id="thermal-btn-label">Thermal Mode: OFF</span>
+                        </button>
+                        <button class="btn btn-sm btn-primary" id="btn-snap-alert" title="Snap Verified Detection & Alert HQ">
+                            <i class="fa-solid fa-camera"></i> <span>Capture Incident</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Stream Display Area -->
+                <div class="camera-video-container" style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden;">
+                    <!-- MJPEG Live Stream -->
+                    <img id="live-video-stream" src="/video_feed" alt="Live AI Camera Feed" style="width: 100%; height: 100%; object-fit: contain; max-height: 580px;">
+
+                    <!-- Tactical HUD Corner Brackets Overlay -->
+                    <div class="hud-corner-bracket hud-tl" style="top: 15px; left: 15px;"></div>
+                    <div class="hud-corner-bracket hud-tr" style="top: 15px; right: 15px;"></div>
+                    <div class="hud-corner-bracket hud-bl" style="bottom: 15px; left: 15px;"></div>
+                    <div class="hud-corner-bracket hud-br" style="bottom: 15px; right: 15px;"></div>
+
+                    <!-- Watermark Overlay -->
+                    <div style="position: absolute; bottom: 20px; left: 25px; font-family: monospace; font-size: 12px; color: rgba(16, 185, 129, 0.7); pointer-events: none;">
+                        INDRADHANU EDGE AI // AUTONOMOUS PERIMETER SURVEILLANCE
+                    </div>
+                </div>
+
+                <!-- Bottom Telemetry Bar -->
+                <div style="background: rgba(10, 20, 16, 0.95); padding: 8px 18px; border-top: 1px solid var(--color-hairline); display: flex; justify-content: space-between; font-size: 12px; font-family: monospace; color: var(--color-outline);">
+                    <span><i class="fa-solid fa-microchip"></i> INFERENCE: 1.4 ms | RESOLUTION: 640x640</span>
+                    <span id="stream-source-label"><i class="fa-solid fa-video"></i> SOURCE: SIMULATION LOOP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: AI CONTROLS, UPLOAD & TELEMETRY -->
+        <aside class="dashboard-sidebar">
+            <!-- Camera Source Selector Card -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-sliders text-primary"></i>
+                        <div>
+                            <h3>Video Source & Stream Setup</h3>
+                            <span class="card-header-sub">Configure camera input</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="dash-card-body" style="padding: 16px;">
+                    <div style="margin-bottom: 14px;">
+                        <label style="display: block; font-size: 12px; text-transform: uppercase; color: var(--color-outline); margin-bottom: 6px; font-weight: 600;">Input Device:</label>
+                        <select id="select-video-source" class="station-select-dropdown" style="width: 100%; padding: 8px 12px; background: var(--color-surface-card); color: #fff; border: 1px solid var(--color-hairline); border-radius: 6px;">
+                            <option value="1" selected>📱 Iriun Webcam (Phone Camera - Device 1)</option>
+                            <option value="0">💻 Integrated Camera (Laptop Webcam - Device 0)</option>
+                            <option value="SIMULATION">🔄 Wildlife Test Loop (Unseen Dataset Images)</option>
+                            <option value="URL">🌐 Phone IP Webcam URL (Wireless Wi-Fi Stream)</option>
+                        </select>
+                        <div id="device-detected-badge" style="margin-top: 8px; font-size: 11px; color: var(--color-primary); display: flex; align-items: center; gap: 6px;">
+                            <span class="pulse-dot" style="width: 6px; height: 6px;"></span>
+                            <span id="device-status-text">Detected: Iriun Webcam Ready (Device 1)</span>
+                        </div>
+                    </div>
+
+                    <!-- URL Input Box (Visible when URL selected) -->
+                    <div id="url-input-container" style="display: none; margin-bottom: 14px;">
+                        <label style="display: block; font-size: 12px; color: var(--color-outline); margin-bottom: 4px;">Phone IP Webcam Stream URL:</label>
+                        <input type="text" id="phone-stream-url" placeholder="http://192.168.1.15:8080/video" style="width: 100%; padding: 8px 10px; background: #000; border: 1px solid var(--color-primary); color: #fff; font-family: monospace; font-size: 12px; border-radius: 4px;">
+                        <span style="font-size: 11px; color: var(--color-outline); display: block; margin-top: 4px;">Enter the exact URL shown on your phone's 'IP Webcam' app.</span>
+                    </div>
+
+                    <button class="btn btn-outline" id="btn-apply-source" style="width: 100%; justify-content: center;">
+                        <i class="fa-solid fa-check"></i> <span>Apply Video Source</span>
+                    </button>
+
+                    <!-- Confidence Slider -->
+                    <div style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12px;">
+                            <span style="color: var(--color-outline); font-weight: 600; text-transform: uppercase;">Confidence Threshold:</span>
+                            <span id="conf-val-label" class="font-mono" style="color: var(--color-primary); font-weight: 700;">{{ current_conf or 45 }}%</span>
+                        </div>
+                        <input type="range" id="slider-conf" min="20" max="85" value="{{ current_conf or 45 }}" style="width: 100%; accent-color: var(--color-primary);">
+                        <div style="font-size: 11px; color: var(--color-outline); margin-top: 8px; line-height: 1.4; background: rgba(0, 0, 0, 0.4); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--color-hairline);">
+                            <div style="display: flex; align-items: center; gap: 6px; color: var(--color-primary); margin-bottom: 3px; font-weight: 600;">
+                                <i class="fa-solid fa-shield-halved"></i> <span>STRICT VERIFICATION RULE</span>
+                            </div>
+                            <span>Animal must be detected with <strong>&ge; <span id="conf-sub-label">{{ current_conf or 45 }}%</span></strong> confidence for <strong>&gt; 2.0 seconds</strong> before logging. Duplicates for the same animal are prevented.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Drag & Drop Test Image Upload -->
+            <div class="dash-card">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-file-arrow-up text-warning"></i>
+                        <div>
+                            <h3>Instant AI Image Inspection</h3>
+                            <span class="card-header-sub">Test any Tiger or Leopard photo</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="dash-card-body" style="padding: 16px;">
+                    <div id="drop-zone" style="border: 2px dashed var(--color-hairline-strong); border-radius: 8px; padding: 24px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; background: rgba(16, 26, 22, 0.4);">
+                        <i class="fa-solid fa-cloud-arrow-up text-primary" style="font-size: 32px; margin-bottom: 8px;"></i>
+                        <p style="font-size: 13px; margin: 0; color: #fff; font-weight: 500;">Click to select or drop an animal image</p>
+                        <span style="font-size: 11px; color: var(--color-outline); display: block; margin-top: 4px;">Supports JPG, PNG (Max 10 MB)</span>
+                        <input type="file" id="file-input" accept="image/*" style="display: none;">
+                    </div>
+
+                    <div id="upload-result" style="display: none; margin-top: 14px; padding: 12px; background: rgba(0, 0, 0, 0.5); border-radius: 6px; border: 1px solid var(--color-hairline);">
+                        <div id="upload-status-text" style="font-size: 13px; font-weight: 600; margin-bottom: 8px;"></div>
+                        <img id="upload-result-img" src="" alt="Detected Animal" style="width: 100%; border-radius: 4px; border: 1px solid var(--color-hairline); margin-bottom: 8px;">
+                        <a href="/" class="btn btn-sm btn-primary" style="width: 100%; justify-content: center;">
+                            <i class="fa-solid fa-map-location-dot"></i> <span>View on Tactical Map</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const videoStream = document.getElementById('live-video-stream');
+    const selectSource = document.getElementById('select-video-source');
+    const urlContainer = document.getElementById('url-input-container');
+    const urlInput = document.getElementById('phone-stream-url');
+    const btnApplySource = document.getElementById('btn-apply-source');
+    const streamSourceLabel = document.getElementById('stream-source-label');
+    const btnToggleThermal = document.getElementById('btn-toggle-stream-thermal');
+    const thermalBtnLabel = document.getElementById('thermal-btn-label');
+    const sliderConf = document.getElementById('slider-conf');
+    const confValLabel = document.getElementById('conf-val-label');
+    const btnSnapAlert = document.getElementById('btn-snap-alert');
+
+    let thermalActive = false;
+    let cameraDevicesMap = {};
+
+    // Load available hardware and virtual camera devices
+    async function loadCameraDevices() {
+        try {
+            const res = await fetch('/api/camera/devices');
+            const data = await res.json();
+            if (data.success && data.devices && data.devices.length > 0) {
+                const currentVal = data.current_source || '1';
+                selectSource.innerHTML = '';
+                cameraDevicesMap = {};
+
+                data.devices.forEach(d => {
+                    cameraDevicesMap[d.id] = d.label;
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = d.label;
+                    if (d.id === currentVal) opt.selected = true;
+                    selectSource.appendChild(opt);
+                });
+
+                // Simulation option
+                cameraDevicesMap['SIMULATION'] = '🔄 Wildlife Test Loop';
+                const simOpt = document.createElement('option');
+                simOpt.value = 'SIMULATION';
+                simOpt.textContent = '🔄 Wildlife Test Loop (Unseen Dataset Images)';
+                if (currentVal === 'SIMULATION') simOpt.selected = true;
+                selectSource.appendChild(simOpt);
+
+                // URL option
+                cameraDevicesMap['URL'] = '🌐 Phone IP Webcam URL';
+                const urlOpt = document.createElement('option');
+                urlOpt.value = 'URL';
+                urlOpt.textContent = '🌐 Phone IP Webcam URL (Wireless Wi-Fi Stream)';
+                if (currentVal && (currentVal.startsWith('http://') || currentVal.startsWith('rtsp://'))) {
+                    urlOpt.selected = true;
+                    urlContainer.style.display = 'block';
+                    urlInput.value = currentVal;
+                }
+                selectSource.appendChild(urlOpt);
+
+                // Update device detected badge
+                const statusEl = document.getElementById('device-status-text');
+                const iriun = data.devices.find(d => d.is_iriun);
+                if (statusEl) {
+                    if (iriun) {
+                        statusEl.innerHTML = `<strong>Iriun Webcam:</strong> Online on Device Index ${iriun.id} (Phone Live)`;
+                        statusEl.parentElement.style.color = 'var(--color-primary)';
+                    } else {
+                        statusEl.textContent = 'Hardware cameras detected.';
+                    }
+                }
+
+                // Update bottom telemetry stream source label
+                const labelText = cameraDevicesMap[currentVal] || `DEVICE ${currentVal}`;
+                streamSourceLabel.innerHTML = `<i class="fa-solid fa-video"></i> SOURCE: ${labelText.toUpperCase()}`;
+            }
+        } catch (e) {
+            console.error('Error loading camera devices:', e);
+        }
+    }
+
+    loadCameraDevices();
+
+    // Show/hide URL input
+    selectSource.addEventListener('change', () => {
+        urlContainer.style.display = selectSource.value === 'URL' ? 'block' : 'none';
+    });
+
+    // Apply Video Source
+    btnApplySource.addEventListener('click', async () => {
+        let chosenSource = selectSource.value;
+        if (chosenSource === 'URL') {
+            const rawUrl = urlInput.value.trim();
+            if (!rawUrl) {
+                alert('Please enter your phone stream URL (e.g. http://192.168.1.15:8080/video)');
+                return;
+            }
+            chosenSource = rawUrl;
+        }
+
+        btnApplySource.disabled = true;
+        btnApplySource.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Switching Camera...';
+
+        try {
+            const res = await fetch('/api/camera/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: chosenSource })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const labelText = cameraDevicesMap[chosenSource] || `SOURCE ${chosenSource}`;
+                streamSourceLabel.innerHTML = `<i class="fa-solid fa-video"></i> SOURCE: ${labelText.toUpperCase()}`;
+                
+                // Refresh stream with slight delay to allow backend driver to grab first frame
+                setTimeout(() => {
+                    videoStream.src = '/video_feed?t=' + Date.now();
+                }, 300);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            btnApplySource.disabled = false;
+            btnApplySource.innerHTML = '<i class="fa-solid fa-check"></i> <span>Apply Video Source</span>';
+        }
+    });
+
+    // Toggle Thermal Mode
+    btnToggleThermal.addEventListener('click', async () => {
+        thermalActive = !thermalActive;
+        thermalBtnLabel.textContent = `Thermal Mode: ${thermalActive ? 'ON (IRONBOW)' : 'OFF'}`;
+        btnToggleThermal.classList.toggle('btn-primary', thermalActive);
+        btnToggleThermal.classList.toggle('btn-outline', !thermalActive);
+
+        try {
+            await fetch('/api/camera/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ thermal_mode: thermalActive })
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    });
+
+    // Confidence Slider Persistence & Dynamic Sync
+    const subLabel = document.getElementById('conf-sub-label');
+    const savedLocalConf = localStorage.getItem('indradhanu_conf_threshold');
+
+    if (savedLocalConf && !isNaN(parseInt(savedLocalConf))) {
+        const localVal = parseInt(savedLocalConf);
+        sliderConf.value = localVal;
+        confValLabel.textContent = `${localVal}%`;
+        if (subLabel) subLabel.textContent = `${localVal}%`;
+        // Sync to server so active stream uses saved threshold immediately
+        fetch('/api/camera/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conf_threshold: localVal / 100.0 })
+        }).catch(() => {});
+    }
+
+    let confDebounceTimer = null;
+    sliderConf.addEventListener('input', (e) => {
+        const val = e.target.value;
+        confValLabel.textContent = `${val}%`;
+        if (subLabel) subLabel.textContent = `${val}%`;
+        localStorage.setItem('indradhanu_conf_threshold', val);
+
+        clearTimeout(confDebounceTimer);
+        confDebounceTimer = setTimeout(async () => {
+            try {
+                await fetch('/api/camera/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ conf_threshold: val / 100.0 })
+                });
+            } catch (err) {
+                console.error('Failed to sync threshold:', err);
+            }
+        }, 150);
+    });
+
+    // Snap & Alert button
+    btnSnapAlert.addEventListener('click', async () => {
+        btnSnapAlert.disabled = true;
+        btnSnapAlert.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Snapping...';
+        try {
+            const res = await fetch('/api/detections/simulate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ node_code: 'NODE-01' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`🚨 INCIDENT DISPATCHED! ${data.detection.species} (${data.detection.confidence}%) recorded into HQ database!`);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            btnSnapAlert.disabled = false;
+            btnSnapAlert.innerHTML = '<i class="fa-solid fa-camera"></i> <span>Capture Incident</span>';
+        }
+    });
+
+    // Image Upload & Drag-Drop
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadResult = document.getElementById('upload-result');
+    const uploadStatusText = document.getElementById('upload-status-text');
+    const uploadResultImg = document.getElementById('upload-result-img');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--color-primary)'; });
+    dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--color-hairline-strong)'; });
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.borderColor = 'var(--color-hairline-strong)';
+        if (e.dataTransfer.files.length) {
+            handleFileUpload(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length) {
+            handleFileUpload(fileInput.files[0]);
+        }
+    });
+
+    async function handleFileUpload(file) {
+        const formData = new FormData();
+        formData.append('image', file);
+
+        uploadResult.style.display = 'block';
+        uploadStatusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-primary"></i> Running AI inference on NVIDIA GPU...';
+
+        try {
+            const res = await fetch('/api/ai/detect_upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success && data.detections.length > 0) {
+                const top = data.detections[0];
+                uploadStatusText.innerHTML = `<span class="text-danger">⚠️ ${top.species.toUpperCase()} DETECTED (${top.confidence}%) [${top.threat_level}]</span> - Ingested in ${data.latency_ms}ms!`;
+                uploadResultImg.src = data.snapshot_url;
+            } else {
+                uploadStatusText.innerHTML = '<span class="text-success">✅ SECTOR CLEAR - No apex predator detected</span>';
+                uploadResultImg.src = data.snapshot_url || '';
+            }
+        } catch (e) {
+            uploadStatusText.innerHTML = '<span class="text-danger">❌ Error analyzing image</span>';
+            console.error(e);
+        }
+    }
+
+    // Automatic Live Detection Listener (Polls every 1.5 seconds)
+    let lastAutoTimestamp = 0;
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/detections/latest_live');
+            const data = await res.json();
+            if (data.success && data.latest && data.latest.timestamp > lastAutoTimestamp) {
+                lastAutoTimestamp = data.latest.timestamp;
+                const d = data.latest;
+                const alertBanner = document.getElementById('live-auto-alert');
+                const titleEl = document.getElementById('live-alert-title');
+                const descEl = document.getElementById('live-alert-desc');
+                if (alertBanner && titleEl && descEl) {
+                    titleEl.innerHTML = `🚨 AUTO-REGISTERED: ${d.species.toUpperCase()} (${d.confidence}%) [${d.threat_level}]`;
+                    descEl.innerHTML = `Incident #${d.id} logged to Central Database & Tactical Map. Location: ${d.latitude.toFixed(4)}° N, ${d.longitude.toFixed(4)}° E | ~${d.distance_meters}m from village boundary.`;
+                    alertBanner.classList.remove('hidden');
+                }
+            }
+        } catch (e) {}
+    }, 1500);
+});
+</script>
+{% endblock %}

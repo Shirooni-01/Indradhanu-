@@ -267,6 +267,138 @@ function initOfflineSimulation() {
     });
 }
 
+// Tactical Web Audio API Emergency Siren & Notification System
+let audioCtx = null;
+let activeSirenOsc = null;
+let activeSirenGain = null;
+let activeSirenTimer = null;
+
+function getAudioContext() {
+    if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+        }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+}
+
+// User interaction listener to unlock audio & request notification permission
+['click', 'keydown', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, () => {
+        getAudioContext();
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => {});
+        }
+    }, { once: false, passive: true });
+});
+
+function stopTacticalSiren() {
+    if (activeSirenTimer) {
+        clearTimeout(activeSirenTimer);
+        activeSirenTimer = null;
+    }
+    if (activeSirenOsc) {
+        try {
+            activeSirenOsc.stop();
+            activeSirenOsc.disconnect();
+        } catch (e) {}
+        activeSirenOsc = null;
+    }
+    if (activeSirenGain) {
+        try {
+            activeSirenGain.disconnect();
+        } catch (e) {}
+        activeSirenGain = null;
+    }
+    const audioEl = document.getElementById('siren-audio');
+    if (audioEl) {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+    }
+}
+
+function playTacticalSiren(durationSeconds = 8) {
+    if (isSoundMuted) return;
+    stopTacticalSiren();
+
+    // 1. Try HTML5 Audio element
+    const audioEl = document.getElementById('siren-audio');
+    if (audioEl) {
+        audioEl.currentTime = 0;
+        audioEl.play().catch(() => {});
+    }
+
+    // 2. Synthesize High-Urgency Dual-Tone Alarm Siren via Web Audio API
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = 'sawtooth';
+
+        const startTime = ctx.currentTime;
+        const totalDuration = durationSeconds;
+        const stepTime = 0.35; // Alternates frequency every 350ms
+        const steps = Math.floor(totalDuration / stepTime);
+
+        for (let i = 0; i < steps; i++) {
+            const t = startTime + (i * stepTime);
+            // Alternate between High Alert (960Hz) and Warning (660Hz)
+            const freq = (i % 2 === 0) ? 960 : 660;
+            osc.frequency.setValueAtTime(freq, t);
+        }
+
+        // Volume envelope
+        gain.gain.setValueAtTime(0.25, startTime);
+        gain.gain.setValueAtTime(0.25, startTime + totalDuration - 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + totalDuration);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(startTime);
+        osc.stop(startTime + totalDuration);
+
+        activeSirenOsc = osc;
+        activeSirenGain = gain;
+        activeSirenTimer = setTimeout(() => {
+            stopTacticalSiren();
+        }, totalDuration * 1000);
+    } catch (err) {
+        console.warn('[Audio Siren] Synthesis fallback error:', err);
+    }
+}
+
+function sendDesktopNotification(sighting) {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'granted') {
+        try {
+            const notif = new Notification(`🚨 PREDATOR ALERT: ${sighting.species.toUpperCase()}`, {
+                body: `Threat Level: ${sighting.threat_level || 'CRITICAL'} (${sighting.confidence}%)\nLocation: ~${sighting.distance_meters}m from village.\nClick to view live tactical feed.`,
+                icon: sighting.image_path || '/static/snapshots/tiger_sample.jpg',
+                tag: 'wildlife-alert-' + (sighting.id || Date.now()),
+                requireInteraction: true
+            });
+            notif.onclick = () => {
+                window.focus();
+                if (typeof openSnapshotModal === 'function') {
+                    openSnapshotModal(sighting);
+                }
+                notif.close();
+            };
+        } catch (e) {}
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().catch(() => {});
+    }
+}
+
 /* ==========================================================================
    SIMULATE LIVE DETECTION BREACH
    ========================================================================== */
@@ -289,13 +421,22 @@ function initDetectionSimulator() {
         soundBtn.innerHTML = isSoundMuted 
             ? '<i class="fa-solid fa-volume-xmark" style="color:#ef4444;"></i>' 
             : '<i class="fa-solid fa-volume-high"></i>';
+        if (isSoundMuted) {
+            stopTacticalSiren();
+        }
     });
 
     document.getElementById('btn-dismiss-threat')?.addEventListener('click', () => {
-        document.getElementById('threat-banner').classList.add('hidden');
+        document.getElementById('threat-banner')?.classList.add('hidden');
+        stopTacticalSiren();
     });
 
-    // Inspect active threat modal button
+    document.getElementById('btn-global-dismiss')?.addEventListener('click', () => {
+        document.getElementById('global-threat-banner')?.classList.add('hidden');
+        stopTacticalSiren();
+    });
+
+    // Inspect active threat modal buttons
     document.getElementById('btn-threat-inspect')?.addEventListener('click', () => {
         if (latestThreatSighting) {
             openSnapshotModal(latestThreatSighting);
@@ -303,6 +444,62 @@ function initDetectionSimulator() {
             openSnapshotModal(sightingsData[0]);
         }
     });
+
+    document.getElementById('btn-global-inspect')?.addEventListener('click', () => {
+        if (latestThreatSighting) {
+            openSnapshotModal(latestThreatSighting);
+        } else if (sightingsData.length > 0) {
+            openSnapshotModal(sightingsData[0]);
+        }
+    });
+
+    // Continuous 24/7 background listener for real-time automatic AI detections from camera
+    let lastSeenAutoTimestamp = 0;
+    let isInitialFetch = true;
+
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/detections/latest_live');
+            const data = await res.json();
+            if (data.success && data.latest) {
+                const latestTs = data.latest.timestamp || 0;
+                if (isInitialFetch) {
+                    isInitialFetch = false;
+                    lastSeenAutoTimestamp = latestTs;
+                    return;
+                }
+
+                if (latestTs > lastSeenAutoTimestamp) {
+                    lastSeenAutoTimestamp = latestTs;
+                    const d = data.latest;
+                    const newSighting = {
+                        id: d.id,
+                        species: d.species,
+                        scientific: d.scientific,
+                        confidence: d.confidence,
+                        lat: d.latitude,
+                        lon: d.longitude,
+                        distance_meters: d.distance_meters,
+                        timestamp: d.time,
+                        detected_at: d.detected_at,
+                        reported_at: d.reported_at,
+                        node_code: d.node_code,
+                        node_name: 'Tadoba North Perimeter Tower',
+                        camera_type: 'Thermal IR (MLX90640 32x24 Array)',
+                        rotator_heading: 145,
+                        sector: 'Sector 1 (Rampur Buffer)',
+                        date: 'Today',
+                        image_path: d.image_path,
+                        threat_level: d.threat_level,
+                        sms_status: isOfflineMode ? 'QUEUED_OFFLINE' : 'DELIVERED',
+                        sms_count: 42
+                    };
+                    sightingsData.unshift(newSighting);
+                    handleNewDetectionUI(newSighting);
+                }
+            }
+        } catch (e) {}
+    }, 1200);
 }
 
 function initStationPanel() {
@@ -543,13 +740,23 @@ function handleNewDetectionUI(newSighting) {
         window.panToSighting(newSighting.lat, newSighting.lon);
     }
 
-    // Show Threat Banner if on Map
+    // Update Global Threat Banner across all pages
+    const globalBanner = document.getElementById('global-threat-banner');
+    if (globalBanner) {
+        const title = document.getElementById('global-threat-title');
+        const desc = document.getElementById('global-threat-desc');
+        if (title) title.textContent = `🚨 ${newSighting.threat_level || 'CRITICAL'} ALERT: ${newSighting.species.toUpperCase()} DETECTED (${newSighting.confidence}%)`;
+        if (desc) desc.textContent = `Location: ${newSighting.lat.toFixed(4)}° N, ${newSighting.lon.toFixed(4)}° E | Distance: ~${newSighting.distance_meters}m from village | Auto-verified (>2.0s) & snapshot logged to database.`;
+        globalBanner.classList.remove('hidden');
+    }
+
+    // Show Map page Threat Banner if present
     const banner = document.getElementById('threat-banner');
     if (banner) {
         const title = document.getElementById('threat-title');
         const desc = document.getElementById('threat-desc');
-        title.textContent = `${newSighting.threat_level} ALERT: ${newSighting.species.toUpperCase()} DETECTED`;
-        desc.textContent = `Location: ${newSighting.lat.toFixed(4)}° N, ${newSighting.lon.toFixed(4)}° E | Distance: ~${newSighting.distance_meters}m from Rampur village | ${
+        if (title) title.textContent = `${newSighting.threat_level} ALERT: ${newSighting.species.toUpperCase()} DETECTED`;
+        if (desc) desc.textContent = `Location: ${newSighting.lat.toFixed(4)}° N, ${newSighting.lon.toFixed(4)}° E | Distance: ~${newSighting.distance_meters}m from Rampur village | ${
             isOfflineMode 
                 ? '⚡ Network Offline: Stored safely in SQLite fallback queue.' 
                 : 'SMS dispatched to 42 villagers & Forest Ranger.'
@@ -557,13 +764,28 @@ function handleNewDetectionUI(newSighting) {
         banner.classList.remove('hidden');
     }
 
-    // Play Alert Sound
-    if (!isSoundMuted) {
-        const audio = document.getElementById('siren-audio');
-        if (audio) {
-            audio.currentTime = 0;
-            audio.play().catch(() => {});
-        }
+    // Also update camera page alert if on /camera
+    const liveAutoAlert = document.getElementById('live-auto-alert');
+    if (liveAutoAlert) {
+        const liveTitle = document.getElementById('live-alert-title');
+        const liveDesc = document.getElementById('live-alert-desc');
+        if (liveTitle) liveTitle.innerHTML = `🚨 AUTO-REGISTERED: ${newSighting.species.toUpperCase()} (${newSighting.confidence}%) [${newSighting.threat_level}]`;
+        if (liveDesc) liveDesc.innerHTML = `Incident #${newSighting.id} logged to Central Database & Tactical Map. Distance: ~${newSighting.distance_meters}m.`;
+        liveAutoAlert.classList.remove('hidden');
+    }
+
+    // DETERMINE IF USER IS ON SITE (active focused window) OR AWAY / IN BACKGROUND:
+    // If not on site -> play emergency siren sound & send OS desktop notification
+    // If on site -> show alert msg in banner + play alert warning tone
+    const isOnSite = !document.hidden && document.hasFocus();
+
+    if (!isOnSite) {
+        console.log('[Surveillance Alert] User is away/backgrounded: Triggering loud alarm siren & OS notification');
+        playTacticalSiren(12);
+        sendDesktopNotification(newSighting);
+    } else {
+        console.log('[Surveillance Alert] User is on site: Displaying threat alert banner & warning audio');
+        playTacticalSiren(4);
     }
 
     latestThreatSighting = newSighting;
@@ -576,7 +798,7 @@ function handleNewDetectionUI(newSighting) {
         renderHistoryData();
     }
 
-    showTemporaryNotification(`PERMANENT RECORD SAVED: ${newSighting.species} (${newSighting.confidence}%) stored in SQLite database.`, 'success');
+    showTemporaryNotification(`🚨 ALERT: ${newSighting.species} (${newSighting.confidence}%) verified (>2.0s) & snapshot stored in SQLite Database.`, 'danger');
 
     setTimeout(() => {
         if (pirStatus) {

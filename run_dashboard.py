@@ -9,6 +9,9 @@ import os
 # Add root directory to python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from app import app, init_db
 
 if __name__ == "__main__":
@@ -18,4 +21,4 @@ if __name__ == "__main__":
     print(" 📡 Ready to receive telemetry & detections from Edge Stations")
     print(" 🌐 Access Tactical Dashboard: http://127.0.0.1:5000")
     print("=" * 65)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
