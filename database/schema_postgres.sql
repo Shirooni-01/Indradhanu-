@@ -57,3 +57,21 @@ CREATE TABLE IF NOT EXISTS system_logs (
     message TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 5. Offline Fallback Alert Queue with Retry State Tracking
+CREATE TABLE IF NOT EXISTS alert_fallback_queue (
+    id SERIAL PRIMARY KEY,
+    detection_id INTEGER REFERENCES detections(id) ON DELETE SET NULL,
+    recipient_phone VARCHAR(32) NOT NULL,
+    recipient_name VARCHAR(128),
+    alert_message TEXT NOT NULL,
+    status VARCHAR(32) DEFAULT 'QUEUED_OFFLINE',   -- 'QUEUED_OFFLINE', 'PROCESSING', 'DELIVERED', 'FAILED_PERMANENT'
+    retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    next_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    dispatched_at TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_alert_queue_status_retry ON alert_fallback_queue(status, next_retry_at);

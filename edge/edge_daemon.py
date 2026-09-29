@@ -23,7 +23,7 @@ from edge.config import (
 )
 from edge.database.edge_db import (
     init_edge_db, log_local_detection, queue_sms_alert, 
-    get_local_contacts, log_edge_event
+    get_local_contacts, log_edge_event, flush_edge_sms_queue
 )
 from edge.hardware.pir_sensor import PIRSensor
 from edge.hardware.thermal_camera import USBCamera
@@ -110,7 +110,7 @@ class EdgeStationDaemon:
 
             # Queue any failed SMS in offline fallback table
             for fail in failed_list:
-                queue_sms_alert(det_id, fail["phone"], fail["name"], fail["message"])
+                queue_sms_alert(det_id, fail["phone"], fail["name"], fail["message"], max_retries=3, error_msg=fail.get("error"))
                 print(f"[Fallback Queue] SMS to {fail['phone']} queued in SQLite for auto-retry.")
 
             # E. Sync to Central HQ
@@ -129,7 +129,24 @@ class EdgeStationDaemon:
 
     def run(self):
         """Starts the edge station daemon."""
+        self.is_running = True
         self.sync_client.start_background_sync(interval_sec=5)
+
+        # Autonomous Edge SMS Retry Worker
+        def sms_retry_loop():
+            while getattr(self, "is_running", False):
+                try:
+                    res = flush_edge_sms_queue(self.sms_service)
+                    if res["processed"] > 0:
+                        print(f"[SMS Retry Engine] Processed {res['processed']} items: {res['delivered']} delivered, {res['retrying']} scheduled backoff, {res['failed_permanent']} permanently failed.")
+                except Exception:
+                    pass
+                time.sleep(10)
+
+        import threading
+        self.retry_thread = threading.Thread(target=sms_retry_loop, daemon=True)
+        self.retry_thread.start()
+
         print("\n[ACTIVE] Edge Station is fully active and monitoring perimeter.")
         print("Press Ctrl+C to stop.\n")
 
@@ -138,6 +155,7 @@ class EdgeStationDaemon:
                 time.sleep(1)
         except KeyboardInterrupt:
             print("\n[Edge] Shutting down station...")
+            self.is_running = False
             self.pir.stop()
             self.sync_client.stop()
             self.camera.release()

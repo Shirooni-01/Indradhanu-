@@ -29,8 +29,11 @@ CREATE TABLE IF NOT EXISTS alert_fallback_queue (
     recipient_phone TEXT NOT NULL,
     recipient_name TEXT,
     alert_message TEXT NOT NULL,
-    status TEXT DEFAULT 'QUEUED_OFFLINE',   -- 'QUEUED_OFFLINE', 'SENT', 'FAILED'
+    status TEXT DEFAULT 'QUEUED_OFFLINE',   -- 'QUEUED_OFFLINE', 'PROCESSING', 'SENT', 'FAILED_PERMANENT'
     retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    next_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_error TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     sent_at TIMESTAMP,
     FOREIGN KEY (detection_id) REFERENCES local_detections(id)

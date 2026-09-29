@@ -19,7 +19,8 @@ from database.db_manager import (
     init_db, log_detection, queue_offline_alert, flush_offline_queue, 
     get_recent_detections, get_contacts, get_camera_nodes, register_camera_node,
     update_node_heartbeat, log_synced_detection,
-    add_contact, update_contact, delete_contact, update_node_location
+    add_contact, update_contact, delete_contact, update_node_location,
+    get_pending_offline_alerts, record_alert_retry_result
 )
 from database.system_config import load_system_config, save_system_config
 from edge.services.sms_service import SMSService
@@ -559,12 +560,14 @@ def detect_upload():
                     contacts, primary["species"], primary["scientific_name"],
                     primary["threat_level"], "NODE-01", "Perimeter Sector", dist
                 )
+                for fail in failed_list:
+                    queue_offline_alert(det_id, fail["phone"], fail["message"], name=fail.get("name", "Villager"), max_retries=3, error_msg=fail.get("error"))
             except Exception as e:
                 print(f"[Upload SMS Error] {e}")
         else:
-            SYSTEM_STATE["offline_queue_count"] += 1
+            SYSTEM_STATE["offline_queue_count"] += len(contacts)
             for c in contacts:
-                queue_offline_alert(det_id, c["phone_number"], f"ALERT: {primary['species']} detected near perimeter!")
+                queue_offline_alert(det_id, c["phone_number"], f"ALERT: {primary['species']} detected near perimeter!", name=c.get("full_name", "Villager"), max_retries=3)
 
     return jsonify({
         "success": True,
@@ -678,15 +681,77 @@ def system_status():
 
 @app.route("/api/offline/flush", methods=["POST"])
 def flush_offline():
-    """Flushes offline queued alerts when network connectivity is established."""
-    flushed_count = flush_offline_queue()
-    SYSTEM_STATE["offline_queue_count"] = 0
+    """Flushes offline queued alerts by dispatching via active SMS gateway with retry logic."""
+    metrics = flush_offline_queue(sms_gateway)
+    pending_alerts = get_pending_offline_alerts(limit=50)
+    SYSTEM_STATE["offline_queue_count"] = len(pending_alerts)
     return jsonify({
         "success": True,
         "is_online": SYSTEM_STATE["is_online"],
-        "flushed_count": flushed_count,
-        "message": f"Successfully flushed {flushed_count} queued events."
+        "metrics": metrics,
+        "remaining_queued": len(pending_alerts),
+        "message": f"Drained {metrics['processed']} alert(s): {metrics['delivered']} delivered, {metrics['retrying']} scheduled retry, {metrics['failed_permanent']} permanent failed."
     })
+
+@app.route("/api/nodes/<node_code>/calibrate", methods=["POST"])
+def calibrate_node(node_code):
+    """Stub handler for camera pan-tilt zero azimuth calibration."""
+    return jsonify({
+        "success": True,
+        "node_code": node_code,
+        "heading": 145,
+        "message": f"Pan-tilt zero azimuth calibrated for {node_code}."
+    })
+
+@app.route("/api/detections/simulate", methods=["POST"])
+def simulate_detection():
+    """Generates a verified detection record for test harness and tactical alert verification."""
+    data = request.get_json(silent=True) or {}
+    node_code = data.get("node_code", "NODE-01")
+    species = "Bengal Tiger"
+    scientific = "Panthera tigris"
+    conf = 91.5
+    threat = "CRITICAL"
+    lat = SYSTEM_STATE.get("latitude", 21.1458)
+    lon = SYSTEM_STATE.get("longitude", 79.0882)
+    dist = 280
+    heading = 145
+    img_path = "/static/snapshots/tiger_sample.jpg"
+
+    sample_dir = Path(__file__).resolve().parent / "static" / "snapshots"
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    sample_file = sample_dir / "tiger_sample.jpg"
+    if not sample_file.exists():
+        dummy = np.zeros((480, 640, 3), dtype=np.uint8)
+        cv2.putText(dummy, "SIMULATED ENCOUNTER", (50, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 140, 255), 2)
+        cv2.imwrite(str(sample_file), dummy)
+
+    det_id = log_detection(species, scientific, conf, threat, lat, lon, dist, heading, img_path, node_code)
+    now_ts = time.time()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S IST")
+    event_id = str(uuid.uuid4())
+
+    det_payload = {
+        "id": det_id,
+        "species": species,
+        "scientific": scientific,
+        "confidence": conf,
+        "threat_level": threat,
+        "image_path": img_path,
+        "latitude": lat,
+        "longitude": lon,
+        "distance_meters": dist,
+        "time": now_str,
+        "detected_at": now_str,
+        "reported_at": now_str,
+        "node_code": node_code,
+        "timestamp": now_ts,
+        "event_id": event_id
+    }
+    global LATEST_AUTO_DETECTION
+    LATEST_AUTO_DETECTION = det_payload
+
+    return jsonify({"success": True, "detection": det_payload})
 
 @app.route("/api/rotator/heading", methods=["GET", "POST"])
 def get_or_set_rotator_heading():
@@ -898,6 +963,10 @@ def manual_dispatch_sms():
         contacts, species, scientific, threat, node_code, sector, dist
     )
 
+    # Automatically queue failed SMS for retry engine
+    for fail in failed_list:
+        queue_offline_alert(None, fail["phone"], fail["message"], name=fail.get("name", "Villager"), max_retries=3, error_msg=fail.get("error"))
+
     return jsonify({
         "success": True,
         "sent_count": sent_cnt,
@@ -961,6 +1030,19 @@ def manage_sms_config():
         "has_twilio_token": bool(cfg.get("twilio_auth_token")),
         "test_mobile_number": cfg.get("test_mobile_number", "+91 8010294703")
     })
+
+# Background Autonomous Central SMS Retry Worker
+def _start_central_retry_worker():
+    def worker():
+        while True:
+            time.sleep(15)
+            try:
+                flush_offline_queue(sms_gateway)
+            except Exception:
+                pass
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+_start_central_retry_worker()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

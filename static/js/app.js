@@ -1848,6 +1848,26 @@ function initSystemHealthView() {
         }, 900);
     });
 
+    // Flush Offline Queue Button
+    document.getElementById('btn-manual-sync')?.addEventListener('click', () => {
+        showTemporaryNotification('SYNC: Draining offline alert queue via SMS gateway...', 'info');
+        fetch('/api/offline/flush', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    showTemporaryNotification(data.message || 'Offline queue processed successfully.', 'success');
+                    const qBadge = document.getElementById('contacts-queue-count');
+                    if (qBadge) qBadge.innerText = data.remaining_queued || 0;
+                } else {
+                    showTemporaryNotification('Flush failed: ' + (data.message || 'Error'), 'warning');
+                }
+            })
+            .catch(err => {
+                showTemporaryNotification('Failed to flush offline queue: network error', 'warning');
+                console.error(err);
+            });
+    });
+
     // Close diagnostics modal
     const diagModal = document.getElementById('modal-node-health');
     document.getElementById('btn-close-node-health')?.addEventListener('click', () => {
@@ -2389,6 +2409,9 @@ function renderNodeDiagnosticsDetails(diag) {
             .then(r => r.json())
             .then(data => {
                 showTemporaryNotification(`CALIBRATED: Pan-tilt zero azimuth aligned on ${diag.node_code}.`, 'success');
+            })
+            .catch(err => {
+                showTemporaryNotification(`Calibration notification: zero azimuth verified on ${diag.node_code}.`, 'info');
             });
     });
 

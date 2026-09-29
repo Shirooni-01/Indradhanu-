@@ -34,11 +34,15 @@ CREATE TABLE IF NOT EXISTS villager_contacts (
 -- If network/GSM is offline, alerts sit here until network restores!
 CREATE TABLE IF NOT EXISTS alert_fallback_queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    detection_id INTEGER NOT NULL,
+    detection_id INTEGER,
     recipient_phone TEXT NOT NULL,
+    recipient_name TEXT,
     alert_message TEXT NOT NULL,
-    status TEXT DEFAULT 'QUEUED_OFFLINE',   -- 'QUEUED_OFFLINE', 'DELIVERED', 'FAILED'
+    status TEXT DEFAULT 'QUEUED_OFFLINE',   -- 'QUEUED_OFFLINE', 'PROCESSING', 'DELIVERED', 'FAILED_PERMANENT'
     retry_count INTEGER DEFAULT 0,
+    max_retries INTEGER DEFAULT 3,
+    next_retry_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_error TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     dispatched_at TIMESTAMP,
     FOREIGN KEY (detection_id) REFERENCES detections(id)
