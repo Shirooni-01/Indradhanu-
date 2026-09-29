@@ -13,20 +13,23 @@ echo "====================================================================="
 # 1. System Package Updates & Hardware Dependencies
 echo "[1/6] Installing Linux System Libraries..."
 sudo apt-get update
-sudo apt-get install -y \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    python3-opencv \
-    v4l-utils \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libatlas-base-dev \
-    git
+
+# Core utilities & Python
+sudo apt-get install -y python3-pip python3-venv python3-dev v4l-utils git || true
+
+# Modern OpenGL (libgl1 replaces obsolete libgl1-mesa-glx)
+sudo apt-get install -y libgl1 || sudo apt-get install -y libgl1-mesa-glx || true
+
+# System OpenCV and Glib
+sudo apt-get install -y python3-opencv || true
+sudo apt-get install -y libglib2.0-0t64 || sudo apt-get install -y libglib2.0-0 || true
+sudo apt-get install -y libopenblas-dev || sudo apt-get install -y libatlas-base-dev || true
 
 # 2. Configure Permissions for Video & GPIO
 echo "[2/6] Configuring hardware group permissions for $(whoami)..."
-sudo usermod -aG video,gpio,dialout $(whoami)
+sudo usermod -aG video $(whoami) 2>/dev/null || true
+sudo usermod -aG dialout $(whoami) 2>/dev/null || true
+sudo usermod -aG gpio $(whoami) 2>/dev/null || true
 
 # 3. Create Isolated Python Virtual Environment with system-site packages
 echo "[3/6] Setting up Python virtual environment..."
@@ -34,23 +37,21 @@ VENV_DIR="/home/$(whoami)/indradhanu_env"
 if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv --system-site-packages "$VENV_DIR"
 fi
+# Also create symlink in case user types Indradhanu_env with capital I
+ln -sfn "$VENV_DIR" "/home/$(whoami)/Indradhanu_env" 2>/dev/null || true
+
 source "$VENV_DIR/bin/activate"
 
 # 4. Install Python Dependencies
 echo "[4/6] Installing Python ML & Edge dependencies..."
-pip install --upgrade pip setuptools wheel
+pip install --upgrade pip setuptools wheel || true
 
-# Install GPIO library depending on OS version (Bookworm uses rpi-lgpio)
-if grep -q "bookworm" /etc/os-release; then
-    echo "Detected Debian Bookworm (Pi OS 12) - Installing rpi-lgpio..."
-    pip install rpi-lgpio
-else
-    echo "Detected Debian Bullseye/Legacy - Installing RPi.GPIO..."
-    pip install RPi.GPIO || pip install rpi-lgpio
-fi
+# Install GPIO library depending on OS version
+echo "Installing Raspberry Pi GPIO libraries..."
+pip install rpi-lgpio || pip install RPi.GPIO || echo "GPIO library will run in simulation mode."
 
 # Install PyTorch CPU and Ultralytics
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu || pip install torch torchvision
 pip install ultralytics requests pillow
 
 # 5. Verify Camera Detection
