@@ -29,7 +29,7 @@ FIXED_HEADING_DEG = int(os.environ.get("FIXED_HEADING_DEG", "145"))
 # ---------------------------------------------------------------------------
 # Central HQ Server (Where data is synced when network is available)
 # ---------------------------------------------------------------------------
-HQ_SERVER_URL = os.environ.get("HQ_SERVER_URL", "http://127.0.0.1:5000")
+HQ_SERVER_URL = os.environ.get("HQ_SERVER_URL", "http://10.88.240.180:5000")
 HEARTBEAT_INTERVAL_SEC = 10     # How often to send telemetry ping to HQ
 SYNC_RETRY_INTERVAL_SEC = 5     # Retry interval for flushing offline queue
 
