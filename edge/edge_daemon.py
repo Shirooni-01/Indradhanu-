@@ -250,7 +250,7 @@ def main():
     parser.add_argument("--hq", default=HQ_SERVER_URL, help="Central HQ server URL (e.g. http://127.0.0.1:5000)")
     parser.add_argument("--trigger-once", action="store_true", help="Trigger single camera capture and inference cycle immediately")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between camera scans in continuous mode (default: 2.0s)")
-    parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD, help="Confidence threshold 0.0-1.0 (default: 0.85 for 85 percent)")
+    parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD, help="Confidence threshold 0.0-1.0 (default: 0.60 for 60 percent)")
     parser.add_argument("--pir", action="store_true", help="Enable physical PIR motion sensor interrupt instead of continuous mode")
     parser.add_argument("--test-sync", choices=["tiger", "leopard"], nargs="?", const="tiger", help="Inject test detection into edge.db and sync to HQ")
     parser.add_argument("--clear-queue", action="store_true", help="Clear/mark all pending offline detections as synced to reset queue")

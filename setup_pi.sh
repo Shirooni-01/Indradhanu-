@@ -70,7 +70,7 @@ fi
 echo "[6/6] Creating systemd service for 24/7 autonomous monitoring..."
 SERVICE_FILE="/etc/systemd/system/indradhanu-edge.service"
 CURRENT_DIR=$(pwd)
-CENTRAL_IP="${1:-http://10.88.240.180:5000}"
+CENTRAL_IP="${1:-http://10.88.48.128:5000}"
 
 sudo bash -c "cat > $SERVICE_FILE" <<EOL
 [Unit]
@@ -85,9 +85,10 @@ WorkingDirectory=$CURRENT_DIR
 Environment="PATH=$VENV_DIR/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="HQ_SERVER_URL=$CENTRAL_IP"
 Environment="EDGE_NODE_CODE=NODE-01"
-Environment="PIN_PIR=18"
-Environment="CAMERA_SOURCE=0"
-ExecStart=$VENV_DIR/bin/python3 $CURRENT_DIR/edge/edge_daemon.py
+Environment="CAMERA_SOURCE=1"
+Environment="ENABLE_PIR=false"
+Environment="CONFIDENCE_THRESHOLD=0.60"
+ExecStart=$VENV_DIR/bin/python3 $CURRENT_DIR/edge/edge_daemon.py --interval 2.0
 Restart=always
 RestartSec=5
 
