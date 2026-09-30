@@ -49,8 +49,8 @@ SIMULATION_MODE = os.environ.get("EDGE_SIMULATE", "false").lower() in ("true", "
 PIR_ENABLED = os.environ.get("ENABLE_PIR", "false").lower() in ("true", "1")
 PIN_PIR = int(os.environ.get("PIN_PIR", "18"))
 
-# Camera Settings (Default: USB webcam index 0)
-CAMERA_SOURCE = os.environ.get("CAMERA_SOURCE", "0")
+# Camera Settings (On Raspberry Pi, USB webcam is typically index 1)
+CAMERA_SOURCE = os.environ.get("CAMERA_SOURCE", "1" if IS_RASPBERRY_PI else "0")
 
 # ---------------------------------------------------------------------------
 # AI Model Scope (Bengal Tiger & Indian Leopard)
