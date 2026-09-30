@@ -7,13 +7,9 @@ frame annotation, and snapshot generation for both the Flask web server and Edge
 import os
 import sys
 import time
-import glob
-import random
 from pathlib import Path
-import cv2
-import numpy as np
 
-# Preload OpenBLAS globally to resolve Linux aarch64 PyTorch 'undefined symbol: sbgemm_'
+# Preload OpenBLAS globally and import torch BEFORE cv2 to prevent Linux ARM64 'undefined symbol: sbgemm_'
 if sys.platform.startswith("linux"):
     import ctypes
     for lib in [
@@ -29,6 +25,16 @@ if sys.platform.startswith("linux"):
                 break
             except Exception:
                 pass
+
+try:
+    import torch
+except Exception:
+    pass
+
+import glob
+import random
+import cv2
+import numpy as np
 
 # Ensure UTF-8 output on Windows
 if hasattr(sys.stdout, "reconfigure"):

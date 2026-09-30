@@ -17,6 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# CRITICAL: Import torch before any other library (especially cv2) to prevent Linux ARM64 OpenBLAS symbol conflict
+try:
+    import torch
+except Exception:
+    pass
+
 # Preload OpenBLAS globally to resolve Linux aarch64 PyTorch 'undefined symbol: sbgemm_'
 if sys.platform.startswith("linux"):
     import ctypes
