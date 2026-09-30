@@ -29,12 +29,13 @@ FIXED_HEADING_DEG = int(os.environ.get("FIXED_HEADING_DEG", "145"))
 # ---------------------------------------------------------------------------
 # Central HQ Server (Where data is synced when network is available)
 # ---------------------------------------------------------------------------
-HQ_SERVER_URL = os.environ.get("HQ_SERVER_URL", "http://10.88.240.180:5000")
+# Default to localhost if running on same machine, or override via HQ_SERVER_URL env var
+HQ_SERVER_URL = os.environ.get("HQ_SERVER_URL", "http://127.0.0.1:5000")
 HEARTBEAT_INTERVAL_SEC = 10     # How often to send telemetry ping to HQ
 SYNC_RETRY_INTERVAL_SEC = 5     # Retry interval for flushing offline queue
 
 # ---------------------------------------------------------------------------
-# Hardware Settings (Raspberry Pi 3 B+)
+# Hardware Settings (Raspberry Pi / USB Camera)
 # ---------------------------------------------------------------------------
 try:
     with open("/proc/cpuinfo", "r") as f:
@@ -44,7 +45,8 @@ except Exception:
 
 SIMULATION_MODE = os.environ.get("EDGE_SIMULATE", "false").lower() in ("true", "1") and not IS_RASPBERRY_PI
 
-# Hardware interrupt pin for PIR motion sensor (RPi BCM numbering)
+# Motion Sensor (PIR): Set to False since hardware motion sensor is not in use
+PIR_ENABLED = os.environ.get("ENABLE_PIR", "false").lower() in ("true", "1")
 PIN_PIR = int(os.environ.get("PIN_PIR", "18"))
 
 # Camera Settings (Default: USB webcam index 0)
@@ -66,7 +68,7 @@ TARGET_SPECIES = {
     }
 }
 
-CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.70"))
+CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.45"))
 
 # ---------------------------------------------------------------------------
 # SMS Alert Gateway Settings

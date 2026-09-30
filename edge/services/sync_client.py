@@ -23,6 +23,7 @@ class SyncClient:
         self.is_running = False
         self.sync_thread = None
         self.is_connected = False
+        self._last_log_state = None
 
     def send_heartbeat(self, battery_pct=88, solar_charging=True, heading=145, status="ONLINE_ACTIVE"):
         """Sends periodic station health heartbeat to Central HQ."""
@@ -42,8 +43,14 @@ class SyncClient:
         try:
             resp = requests.post(url, json=payload, timeout=3)
             self.is_connected = resp.status_code == 200
+            if self._last_log_state != True and self.is_connected:
+                print(f"[Sync Client] [ONLINE] Heartbeat synced with Central HQ at {self.hq_url}")
+                self._last_log_state = True
             return self.is_connected
-        except Exception:
+        except Exception as e:
+            if self._last_log_state != False:
+                print(f"[Sync Client Warning] Cannot connect to HQ at {self.hq_url} ({e})")
+                self._last_log_state = False
             self.is_connected = False
             return False
 

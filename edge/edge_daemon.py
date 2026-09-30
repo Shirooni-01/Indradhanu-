@@ -36,7 +36,7 @@ if sys.platform.startswith("linux"):
 
 from edge.config import (
     NODE_CODE, NODE_NAME, SECTOR, LATITUDE, LONGITUDE, 
-    FIXED_HEADING_DEG, SIMULATION_MODE, HQ_SERVER_URL
+    FIXED_HEADING_DEG, SIMULATION_MODE, HQ_SERVER_URL, PIR_ENABLED
 )
 from edge.database.edge_db import (
     init_edge_db, log_local_detection, queue_sms_alert, 
@@ -49,9 +49,10 @@ from edge.services.sms_service import SMSService
 from edge.services.sync_client import SyncClient
 
 class EdgeStationDaemon:
-    def __init__(self, node_code=NODE_CODE, hq_url=HQ_SERVER_URL):
+    def __init__(self, node_code=NODE_CODE, hq_url=HQ_SERVER_URL, enable_pir=PIR_ENABLED):
         self.node_code = node_code
         self.hq_url = hq_url
+        self.enable_pir = enable_pir
         self.fixed_heading = FIXED_HEADING_DEG
         print("=" * 65)
         print(f"[EDGE STATION] PROJECT INDRADHANU - NODE [{self.node_code}]")
@@ -59,7 +60,8 @@ class EdgeStationDaemon:
         print(f"   Location: {LATITUDE}, {LONGITUDE}")
         print(f"   Heading: {self.fixed_heading}° (Fixed Direction)")
         print(f"   HQ Server: {self.hq_url}")
-        print(f"   Hardware: Raspberry Pi 3 B+ (USB Optical Surveillance)")
+        print(f"   Hardware: Raspberry Pi (USB Optical Surveillance Camera)")
+        print(f"   Motion Sensor (PIR): {'ENABLED' if self.enable_pir else 'DISABLED (Continuous Surveillance)'}")
         print("=" * 65)
 
         # 1. Initialize local SQLite
@@ -72,33 +74,46 @@ class EdgeStationDaemon:
         self.sms_service = SMSService()
         self.sync_client = SyncClient(hq_url=self.hq_url, node_code=self.node_code)
 
-        # 3. Setup PIR Sensor with wake callback
-        self.pir = PIRSensor(on_motion_callback=self.on_motion_detected)
+        # 3. Setup PIR Sensor if enabled, otherwise continuous loop
         self.is_busy = False
+        if self.enable_pir:
+            self.pir = PIRSensor(on_motion_callback=self.on_motion_detected)
+            print("[2/5] PIR motion hardware interrupt armed.")
+        else:
+            self.pir = None
+            print("[2/5] Operating in continuous monitoring mode (no motion sensor required).")
 
     def on_motion_detected(self):
-        """Autonomous Edge Processing Loop triggered by PIR motion interrupt."""
+        """Callback for PIR motion interrupt."""
+        self.process_cycle(trigger_reason="PIR_WAKE")
+
+    def process_cycle(self, trigger_reason="MANUAL_TRIGGER"):
+        """Core Edge Processing Loop: Capture -> AI Model -> SQLite -> SMS -> HQ Sync."""
         if self.is_busy:
-            print("[Edge] Busy processing previous event. Skipping duplicate interrupt.")
             return
 
         self.is_busy = True
         try:
-            print("\n[EVENT] >>> PIR MOTION DETECTED! Waking camera & AI subsystem...")
-            log_edge_event("PIR_WAKE", f"Motion interrupt detected at fixed heading {self.fixed_heading}°")
+            log_edge_event(trigger_reason, f"Triggered at heading {self.fixed_heading}°")
 
             # A. USB Camera Frame Capture
             frame_data = self.camera.capture_frame()
             if not frame_data or frame_data.get("frame") is None:
-                print("[Camera Warning] Frame capture failed. Aborting detection cycle.")
+                print(f"[Camera Warning] Frame capture failed on device {self.camera.source}.")
                 return
 
+            frame = frame_data["frame"]
+            snap_path = frame_data.get("snapshot_path")
+            h, w = frame.shape[:2]
+            print(f"[Camera] Captured frame: {w}x{h} px | Stored: {snap_path}")
+
             # B. Real AI Model Inference (Strictly Tiger & Leopard)
-            print("[AI Engine] Running inference for target species (Bengal Tiger, Indian Leopard)...")
+            print(f"[AI Engine] Running inference for Bengal Tiger & Indian Leopard...")
             result = self.ai_detector.run_inference(frame_data)
+            lat_ms = result.get("latency_ms", 0)
 
             if not result.get("detected"):
-                print("[AI Engine] Frame clear. Non-target animal or no predator detected.")
+                print(f"[AI Engine] Scan complete ({lat_ms:.1f}ms). Perimeter clear (no Tiger/Leopard detected).")
                 return
 
             species = result["species"]
@@ -108,8 +123,8 @@ class EdgeStationDaemon:
             snapshot = result["web_snapshot_path"]
             dist = 280  # Estimated perimeter distance
 
-            print(f"\n[ALERT - CRITICAL] Confirmed {species.upper()} ({scientific})!")
-            print(f"   Confidence: {conf}% | Threat: {threat} | Heading: {self.fixed_heading}°")
+            print(f"\n[ALERT - CRITICAL] CONFIRMED {species.upper()} ({scientific})!")
+            print(f"   Confidence: {conf}% | Threat: {threat} | Latency: {lat_ms:.1f}ms | Heading: {self.fixed_heading}°")
 
             # C. Immediate Local SQLite Storage
             det_id = log_local_detection(
@@ -134,17 +149,46 @@ class EdgeStationDaemon:
             print("[Sync] Attempting real-time synchronization to Central HQ...")
             synced = self.sync_client.sync_pending_detections()
             if synced > 0:
-                print("[Sync] [SUCCESS] Sighting synced to Central HQ successfully!")
+                print(f"[Sync] [SUCCESS] Sighting #{det_id} synced to Central HQ successfully!")
             else:
-                print("[Sync] [OFFLINE] Central HQ unreachable. Saved in SQLite for background sync.")
+                print("[Sync] [OFFLINE] Central HQ unreachable. Record safely queued in SQLite.")
 
         except Exception as e:
             print(f"[Edge Daemon Error] {e}")
         finally:
             self.is_busy = False
-            print("[Edge] Returning to standby mode. Waiting for PIR interrupt...\n")
 
-    def run(self):
+    def test_sync(self, species="tiger"):
+        """Directly injects a test sighting to verify Edge DB -> Central HQ sync end-to-end."""
+        print("\n" + "=" * 65)
+        print(f"[TEST SYNC] Injecting verified test detection for: {species.upper()}")
+        print("=" * 65)
+
+        spec_map = {
+            "tiger": ("Bengal Tiger", "Panthera tigris", "CRITICAL"),
+            "leopard": ("Indian Leopard", "Panthera pardus", "CRITICAL")
+        }
+        common_name, scientific, threat = spec_map.get(species.lower(), ("Bengal Tiger", "Panthera tigris", "CRITICAL"))
+        conf = 94.5
+        dist = 250
+        snapshot = "/static/snapshots/tiger_sample.jpg"
+
+        det_id = log_local_detection(
+            self.node_code, common_name, scientific, conf, threat,
+            LATITUDE, LONGITUDE, dist, self.fixed_heading, snapshot
+        )
+        print(f"1. [SQLite] Inserted record #{det_id} into local edge.db (local_detections)")
+
+        print(f"2. [Sync] Pushing record #{det_id} to Central HQ ({self.hq_url})...")
+        synced = self.sync_client.sync_pending_detections()
+        if synced > 0:
+            print(f"3. [SUCCESS] Successfully synced record #{det_id} to Central HQ Dashboard!")
+            print(f"   -> Check your browser dashboard at: {self.hq_url} to see the alert beacon!")
+        else:
+            print(f"3. [FAILED] Sync failed. Central HQ at {self.hq_url} did not accept the record.")
+            print("   -> Make sure app.py is running and HQ URL is reachable.")
+
+    def run(self, interval_sec=2.0):
         """Starts the edge station daemon."""
         self.is_running = True
         self.sync_client.start_background_sync(interval_sec=5)
@@ -155,7 +199,7 @@ class EdgeStationDaemon:
                 try:
                     res = flush_edge_sms_queue(self.sms_service)
                     if res["processed"] > 0:
-                        print(f"[SMS Retry Engine] Processed {res['processed']} items: {res['delivered']} delivered, {res['retrying']} scheduled backoff, {res['failed_permanent']} permanently failed.")
+                        print(f"[SMS Retry Engine] Processed {res['processed']} items: {res['delivered']} delivered.")
                 except Exception:
                     pass
                 time.sleep(10)
@@ -164,34 +208,51 @@ class EdgeStationDaemon:
         self.retry_thread = threading.Thread(target=sms_retry_loop, daemon=True)
         self.retry_thread.start()
 
-        print("\n[ACTIVE] Edge Station is fully active and monitoring perimeter.")
-        print("Press Ctrl+C to stop.\n")
+        if self.enable_pir and self.pir:
+            print("\n[ACTIVE] Edge Station is active in PIR WAKE MODE.")
+            print("Press Ctrl+C to stop.\n")
+            try:
+                while self.is_running:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                pass
+        else:
+            print(f"\n[ACTIVE] Edge Station is active in CONTINUOUS SURVEILLANCE MODE (Interval: {interval_sec}s).")
+            print("Press Ctrl+C to stop.\n")
+            try:
+                while self.is_running:
+                    self.process_cycle(trigger_reason="CONTINUOUS_SCAN")
+                    time.sleep(interval_sec)
+            except KeyboardInterrupt:
+                pass
 
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\n[Edge] Shutting down station...")
-            self.is_running = False
+        print("\n[Edge] Shutting down station...")
+        self.is_running = False
+        if self.pir:
             self.pir.stop()
-            self.sync_client.stop()
-            self.camera.release()
-            print("[Edge] Station safely halted.")
+        self.sync_client.stop()
+        self.camera.release()
+        print("[Edge] Station safely halted.")
 
 def main():
     parser = argparse.ArgumentParser(description="Project Indradhanu Headless Edge Station")
     parser.add_argument("--node", default=NODE_CODE, help="Station Node Code (e.g. NODE-01)")
-    parser.add_argument("--hq", default=HQ_SERVER_URL, help="Central HQ server URL")
+    parser.add_argument("--hq", default=HQ_SERVER_URL, help="Central HQ server URL (e.g. http://127.0.0.1:5000)")
     parser.add_argument("--trigger-once", action="store_true", help="Trigger single camera capture and inference cycle immediately")
+    parser.add_argument("--interval", type=float, default=2.0, help="Seconds between camera scans in continuous mode (default: 2.0s)")
+    parser.add_argument("--pir", action="store_true", help="Enable physical PIR motion sensor interrupt instead of continuous mode")
+    parser.add_argument("--test-sync", choices=["tiger", "leopard"], nargs="?", const="tiger", help="Inject test detection into edge.db and sync to HQ")
     args = parser.parse_args()
 
-    daemon = EdgeStationDaemon(node_code=args.node, hq_url=args.hq)
+    daemon = EdgeStationDaemon(node_code=args.node, hq_url=args.hq, enable_pir=args.pir)
 
-    if args.trigger_once:
-        daemon.on_motion_detected()
+    if args.test_sync:
+        daemon.test_sync(species=args.test_sync)
+    elif args.trigger_once:
+        daemon.process_cycle(trigger_reason="TRIGGER_ONCE")
         daemon.sync_client.sync_pending_detections()
     else:
-        daemon.run()
+        daemon.run(interval_sec=args.interval)
 
 if __name__ == "__main__":
     main()
