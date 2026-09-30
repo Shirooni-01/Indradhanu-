@@ -20,22 +20,34 @@ class USBCamera:
         self._init_camera()
 
     def _init_camera(self):
-        """Initializes OpenCV VideoCapture for the configured camera source."""
-        cam_idx = int(self.source) if self.source.isdigit() else self.source
-        backend = cv2.CAP_V4L2 if sys.platform.startswith("linux") and isinstance(cam_idx, int) else cv2.CAP_ANY
+        """Initializes OpenCV VideoCapture, auto-detecting the USB camera index if default fails."""
+        initial_target = int(self.source) if self.source.isdigit() else self.source
+        
+        # Build candidate sources list: user configured first, then common Pi indices
+        candidates = [initial_target]
+        if isinstance(initial_target, int):
+            for fallback_idx in [0, 1, 2, 3, 4]:
+                if fallback_idx not in candidates:
+                    candidates.append(fallback_idx)
 
-        try:
-            self.cap = cv2.VideoCapture(cam_idx, backend)
-            if self.cap and self.cap.isOpened():
-                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                ret, test_frame = self.cap.read()
-                if ret and test_frame is not None:
-                    self.is_connected = True
-                    print(f"[Camera] Successfully initialized USB camera (Device: {self.source}).")
-                    return
-        except Exception as e:
-            print(f"[Camera Error] Failed to initialize camera device {self.source}: {e}")
+        for candidate in candidates:
+            backends = [cv2.CAP_V4L2, cv2.CAP_ANY] if sys.platform.startswith("linux") and isinstance(candidate, int) else [cv2.CAP_ANY]
+            for backend in backends:
+                try:
+                    cap = cv2.VideoCapture(candidate, backend) if isinstance(candidate, int) else cv2.VideoCapture(candidate)
+                    if cap and cap.isOpened():
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        ret, test_frame = cap.read()
+                        if ret and test_frame is not None:
+                            self.cap = cap
+                            self.source = str(candidate)
+                            self.is_connected = True
+                            print(f"[Camera] Successfully initialized USB camera (Device: {self.source}).")
+                            return
+                        cap.release()
+                except Exception:
+                    pass
 
         print(f"[Camera Warning] USB camera device {self.source} not currently available.")
         self.is_connected = False

@@ -17,6 +17,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
+# Preload OpenBLAS globally to resolve Linux aarch64 PyTorch 'undefined symbol: sbgemm_'
+if sys.platform.startswith("linux"):
+    import ctypes
+    for lib in [
+        "/usr/lib/aarch64-linux-gnu/libopenblas.so.0",
+        "/usr/lib/aarch64-linux-gnu/libopenblas.so",
+        "/usr/lib/arm-linux-gnueabihf/libopenblas.so.0",
+        "/usr/lib/libopenblas.so.0",
+        "/usr/lib/libopenblas.so"
+    ]:
+        if os.path.exists(lib):
+            try:
+                ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL)
+                break
+            except Exception:
+                pass
+
 from edge.config import (
     NODE_CODE, NODE_NAME, SECTOR, LATITUDE, LONGITUDE, 
     FIXED_HEADING_DEG, SIMULATION_MODE, HQ_SERVER_URL

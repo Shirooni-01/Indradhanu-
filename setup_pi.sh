@@ -23,7 +23,7 @@ sudo apt-get install -y libgl1 || sudo apt-get install -y libgl1-mesa-glx || tru
 # System OpenCV and Glib
 sudo apt-get install -y python3-opencv || true
 sudo apt-get install -y libglib2.0-0t64 || sudo apt-get install -y libglib2.0-0 || true
-sudo apt-get install -y libopenblas-dev || sudo apt-get install -y libatlas-base-dev || true
+sudo apt-get install -y libopenblas-dev libopenblas0 || sudo apt-get install -y libatlas-base-dev || true
 
 # 2. Configure Permissions for Video & GPIO
 echo "[2/6] Configuring hardware group permissions for $(whoami)..."

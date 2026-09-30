@@ -13,6 +13,23 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+# Preload OpenBLAS globally to resolve Linux aarch64 PyTorch 'undefined symbol: sbgemm_'
+if sys.platform.startswith("linux"):
+    import ctypes
+    for lib in [
+        "/usr/lib/aarch64-linux-gnu/libopenblas.so.0",
+        "/usr/lib/aarch64-linux-gnu/libopenblas.so",
+        "/usr/lib/arm-linux-gnueabihf/libopenblas.so.0",
+        "/usr/lib/libopenblas.so.0",
+        "/usr/lib/libopenblas.so"
+    ]:
+        if os.path.exists(lib):
+            try:
+                ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL)
+                break
+            except Exception:
+                pass
+
 # Ensure UTF-8 output on Windows
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
