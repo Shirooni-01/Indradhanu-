@@ -270,6 +270,17 @@ def mark_detection_synced(det_id):
     conn.commit()
     conn.close()
 
+def clear_all_pending_sync():
+    """Marks all existing unsynced records as synced so they don't replay on startup."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE local_detections SET is_synced_to_hq = 1 WHERE is_synced_to_hq = 0")
+    cnt = cursor.rowcount
+    cursor.execute("UPDATE alert_fallback_queue SET status = 'DELIVERED_CLEARED' WHERE status = 'QUEUED_OFFLINE'")
+    conn.commit()
+    conn.close()
+    return cnt
+
 def get_local_contacts():
     """Gets active contacts for immediate alert broadcast."""
     conn = get_connection()

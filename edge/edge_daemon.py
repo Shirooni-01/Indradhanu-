@@ -47,7 +47,8 @@ from edge.config import (
 )
 from edge.database.edge_db import (
     init_edge_db, log_local_detection, queue_sms_alert, 
-    get_local_contacts, log_edge_event, flush_edge_sms_queue
+    get_local_contacts, log_edge_event, flush_edge_sms_queue,
+    clear_all_pending_sync
 )
 from edge.hardware.pir_sensor import PIRSensor
 from edge.hardware.thermal_camera import USBCamera
@@ -252,7 +253,13 @@ def main():
     parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD, help="Confidence threshold 0.0-1.0 (default: 0.85 for 85 percent)")
     parser.add_argument("--pir", action="store_true", help="Enable physical PIR motion sensor interrupt instead of continuous mode")
     parser.add_argument("--test-sync", choices=["tiger", "leopard"], nargs="?", const="tiger", help="Inject test detection into edge.db and sync to HQ")
+    parser.add_argument("--clear-queue", action="store_true", help="Clear/mark all pending offline detections as synced to reset queue")
     args = parser.parse_args()
+
+    if args.clear_queue:
+        cnt = clear_all_pending_sync()
+        print(f"[Queue Reset] Successfully marked {cnt} old offline detections as synced. Queue is now completely clear!")
+        return
 
     daemon = EdgeStationDaemon(node_code=args.node, hq_url=args.hq, enable_pir=args.pir, conf_thresh=args.conf)
 

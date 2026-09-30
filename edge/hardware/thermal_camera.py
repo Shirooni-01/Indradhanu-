@@ -23,10 +23,11 @@ class USBCamera:
         """Initializes OpenCV VideoCapture, auto-detecting the USB camera index if default fails."""
         initial_target = int(self.source) if self.source.isdigit() else self.source
         
-        # Build candidate sources list: user configured first, then common Pi indices
+        # Build candidate sources list: user configured first, then common Pi indices (prioritizing 1 on Linux)
         candidates = [initial_target]
+        preferred_order = [1, 0, 2, 3] if sys.platform.startswith("linux") else [0, 1, 2, 3]
         if isinstance(initial_target, int):
-            for fallback_idx in [0, 1, 2, 3, 4]:
+            for fallback_idx in preferred_order:
                 if fallback_idx not in candidates:
                     candidates.append(fallback_idx)
 
@@ -36,6 +37,8 @@ class USBCamera:
                 try:
                     cap = cv2.VideoCapture(candidate, backend) if isinstance(candidate, int) else cv2.VideoCapture(candidate)
                     if cap and cap.isOpened():
+                        # Crucial for Raspberry Pi: set buffer size to 1 to avoid stale frames / V4L2 queue overflow
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                         cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                         ret, test_frame = cap.read()
@@ -58,11 +61,19 @@ class USBCamera:
         Returns dict containing 'frame' (numpy array) and 'snapshot_path', or None on capture failure.
         """
         if not self.is_connected or not self.cap or not self.cap.isOpened():
-            # Attempt to re-initialize once
             self._init_camera()
 
         if self.is_connected and self.cap and self.cap.isOpened():
+            # Flush any stale frame in hardware buffer to get real-time image
             ret, frame = self.cap.read()
+            if not ret or frame is None:
+                # Automatic recovery: release dead handle and reconnect
+                print("[Camera Warning] Frame grab returned empty frame. Reconnecting camera...")
+                self.release()
+                self._init_camera()
+                if self.is_connected and self.cap and self.cap.isOpened():
+                    ret, frame = self.cap.read()
+
             if ret and frame is not None:
                 os.makedirs(SNAPSHOTS_DIR, exist_ok=True)
                 snap_filename = f"capture_{int(time.time())}.jpg"
@@ -74,8 +85,6 @@ class USBCamera:
                     "snapshot_path": full_path,
                     "web_snapshot_path": f"/static/snapshots/{snap_filename}"
                 }
-            else:
-                print("[Camera Warning] Frame grab returned empty frame.")
 
         return {
             "frame": None,
