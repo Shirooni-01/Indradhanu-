@@ -5,12 +5,21 @@ Serves the Forest Officer Tactical Dashboard & REST APIs.
 
 import os
 import sys
+
+# Suppress noisy OpenCV C++ backend warnings (especially on headless/cloud servers like Render)
+os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+
 import json
 import random
 import time
 from datetime import datetime
 from pathlib import Path
 import cv2
+try:
+    cv2.setLogLevel(0)
+except Exception:
+    pass
 import numpy as np
 import uuid
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response
@@ -79,30 +88,59 @@ SYSTEM_STATE = {
 sms_gateway = SMSService()
 
 def detect_available_cameras():
-    """Detects available camera devices on Windows and identifies Iriun/Integrated cameras."""
+    """Detects available camera devices on Windows / Linux, falling back to Simulation mode when no hardware cameras exist."""
     devices = []
-    try:
-        from pygrabber.dshow_graph import FilterGraph
-        raw_names = FilterGraph().get_input_devices()
-        for i, name in enumerate(raw_names):
-            is_iriun = "iriun" in name.lower()
-            devices.append({
-                "id": str(i),
-                "name": name,
-                "is_iriun": is_iriun,
-                "label": f"📱 {name} (Phone Cam - Device {i})" if is_iriun else f"💻 {name} (Device {i})"
-            })
-    except Exception:
-        devices = [
-            {"id": "1", "name": "Iriun Webcam", "is_iriun": True, "label": "📱 Iriun Webcam (Phone Cam - Device 1)"},
-            {"id": "0", "name": "Integrated Camera", "is_iriun": False, "label": "💻 Laptop Webcam (Device 0)"}
-        ]
+    if sys.platform == "win32":
+        try:
+            from pygrabber.dshow_graph import FilterGraph
+            raw_names = FilterGraph().get_input_devices()
+            for i, name in enumerate(raw_names):
+                is_iriun = "iriun" in name.lower()
+                devices.append({
+                    "id": str(i),
+                    "name": name,
+                    "is_iriun": is_iriun,
+                    "label": f"📱 {name} (Phone Cam - Device {i})" if is_iriun else f"💻 {name} (Device {i})"
+                })
+        except Exception:
+            pass
+    elif sys.platform.startswith("linux"):
+        import glob
+        video_nodes = sorted(glob.glob("/dev/video*"))
+        for node in video_nodes:
+            idx = node.replace("/dev/video", "")
+            if idx.isdigit():
+                devices.append({
+                    "id": idx,
+                    "name": f"Video Device {idx} ({node})",
+                    "is_iriun": False,
+                    "label": f"📹 Hardware Camera ({node})"
+                })
     return devices
 
-# Auto-detect default camera source: prefer Iriun Webcam if available
+# Auto-detect default camera source: prefer Iriun Webcam if available, or first hardware camera, or fall back to SIMULATION (e.g. Render / Cloud)
 AVAILABLE_DEVICES = detect_available_cameras()
 iriun_device = next((d for d in AVAILABLE_DEVICES if d.get("is_iriun")), None)
-DEFAULT_SOURCE = iriun_device["id"] if iriun_device else ("0" if AVAILABLE_DEVICES else "0")
+
+if iriun_device:
+    DEFAULT_SOURCE = iriun_device["id"]
+elif AVAILABLE_DEVICES:
+    DEFAULT_SOURCE = AVAILABLE_DEVICES[0]["id"]
+else:
+    DEFAULT_SOURCE = "SIMULATION"
+
+# Respect saved config if valid; if saved config refers to a non-existent hardware camera on Linux, fall back to SIMULATION
+saved_source = str(SAVED_CONFIG.get("source", "")).strip()
+if saved_source:
+    if saved_source == "SIMULATION":
+        DEFAULT_SOURCE = "SIMULATION"
+    elif saved_source.isdigit():
+        if sys.platform.startswith("linux") and not os.path.exists(f"/dev/video{saved_source}"):
+            DEFAULT_SOURCE = "SIMULATION"
+        else:
+            DEFAULT_SOURCE = saved_source
+    else:
+        DEFAULT_SOURCE = saved_source
 
 CAMERA_LOCK = threading.Lock()
 
@@ -124,17 +162,51 @@ LAST_AUTO_LOG_TIME = 0.0
 LATEST_AUTO_DETECTION = None
 
 def open_camera_capture(source):
-    """Safely opens a video source (index or URL) with backend negotiation to avoid DSHOW crashes."""
+    """Safely opens a video source (index or URL) with backend negotiation to avoid DSHOW / V4L2 crashes."""
     src_str = str(source).strip()
     if src_str == "SIMULATION":
         return None
 
     if not src_str.isdigit():
         # URL stream (HTTP / RTSP)
-        cap = cv2.VideoCapture(src_str)
-        return cap if cap.isOpened() else None
+        try:
+            cap = cv2.VideoCapture(src_str)
+            return cap if cap.isOpened() else None
+        except Exception as e:
+            print(f"[Camera] Failed to open URL stream {src_str}: {e}", flush=True)
+            return None
 
     cam_id = int(src_str)
+
+    # On Linux, verify device node /dev/video{cam_id} physically exists to avoid OpenCV FFMPEG/V4L2 C++ exception dumps
+    if sys.platform.startswith("linux"):
+        dev_node = f"/dev/video{cam_id}"
+        if not os.path.exists(dev_node):
+            return None
+
+        try:
+            cap = cv2.VideoCapture(cam_id, cv2.CAP_V4L2)
+            if cap.isOpened():
+                try:
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+                return cap
+        except Exception:
+            pass
+
+        try:
+            cap = cv2.VideoCapture(cam_id)
+            if cap.isOpened():
+                try:
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                except Exception:
+                    pass
+                return cap
+        except Exception:
+            pass
+        return None
+
     dev_name = ""
     try:
         from pygrabber.dshow_graph import FilterGraph
@@ -196,21 +268,39 @@ def surveillance_worker():
     if test_dir.exists():
         sim_test_images = list(test_dir.glob("*.jpg"))
     if not sim_test_images:
+        samples_dir = Path(__file__).resolve().parent / "static" / "test_samples"
+        if samples_dir.exists():
+            sim_test_images = list(samples_dir.glob("*.jpg"))
+    if not sim_test_images:
         snap_dir = Path(__file__).resolve().parent / "static" / "snapshots"
-        sim_test_images = list(snap_dir.glob("*.jpg"))
+        if snap_dir.exists():
+            sim_test_images = list(snap_dir.glob("*.jpg"))
+    if not sim_test_images:
+        static_dir = Path(__file__).resolve().parent / "static"
+        sim_test_images = [f for f in static_dir.glob("*.jpg") if "debug" not in f.name and "test" not in f.name]
 
     sim_idx = 0
     last_sim_switch = 0.0
     consecutive_read_failures = 0
     last_cam_open_attempt = 0.0
 
-    print("[Surveillance Worker] Continuous Edge AI Surveillance loop initialized.")
+    print(f"[Surveillance Worker] Continuous Edge AI Surveillance loop initialized ({len(sim_test_images)} simulation frames ready).")
 
     while SURVEILLANCE_RUNNING:
         try:
             with CAMERA_LOCK:
                 source = CAMERA_STATE["source"]
                 conf_thresh = CAMERA_STATE["conf_threshold"]
+
+            # If camera source is a hardware camera index, but running on Linux with no /dev/video devices, auto-switch to SIMULATION
+            if source != "SIMULATION" and not str(source).startswith("http"):
+                if sys.platform.startswith("linux"):
+                    import glob
+                    if not glob.glob("/dev/video*"):
+                        with CAMERA_LOCK:
+                            CAMERA_STATE["source"] = "SIMULATION"
+                            source = "SIMULATION"
+                        print("[Camera] No physical video devices found on Linux/Render instance. Auto-switched to Wildlife AI Simulation Feed.", flush=True)
 
             frame = None
 
