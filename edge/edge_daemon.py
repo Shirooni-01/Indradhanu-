@@ -42,7 +42,8 @@ if sys.platform.startswith("linux"):
 
 from edge.config import (
     NODE_CODE, NODE_NAME, SECTOR, LATITUDE, LONGITUDE, 
-    FIXED_HEADING_DEG, SIMULATION_MODE, HQ_SERVER_URL, PIR_ENABLED
+    FIXED_HEADING_DEG, SIMULATION_MODE, HQ_SERVER_URL, PIR_ENABLED,
+    CONFIDENCE_THRESHOLD
 )
 from edge.database.edge_db import (
     init_edge_db, log_local_detection, queue_sms_alert, 
@@ -55,10 +56,11 @@ from edge.services.sms_service import SMSService
 from edge.services.sync_client import SyncClient
 
 class EdgeStationDaemon:
-    def __init__(self, node_code=NODE_CODE, hq_url=HQ_SERVER_URL, enable_pir=PIR_ENABLED):
+    def __init__(self, node_code=NODE_CODE, hq_url=HQ_SERVER_URL, enable_pir=PIR_ENABLED, conf_thresh=CONFIDENCE_THRESHOLD):
         self.node_code = node_code
         self.hq_url = hq_url
         self.enable_pir = enable_pir
+        self.conf_thresh = float(conf_thresh)
         self.fixed_heading = FIXED_HEADING_DEG
         print("=" * 65)
         print(f"[EDGE STATION] PROJECT INDRADHANU - NODE [{self.node_code}]")
@@ -68,6 +70,7 @@ class EdgeStationDaemon:
         print(f"   HQ Server: {self.hq_url}")
         print(f"   Hardware: Raspberry Pi (USB Optical Surveillance Camera)")
         print(f"   Motion Sensor (PIR): {'ENABLED' if self.enable_pir else 'DISABLED (Continuous Surveillance)'}")
+        print(f"   Confidence Filter: >= {int(self.conf_thresh * 100)}% (Strict Predator Threshold)")
         print("=" * 65)
 
         # 1. Initialize local SQLite
@@ -76,7 +79,7 @@ class EdgeStationDaemon:
 
         # 2. Initialize Subsystems
         self.camera = USBCamera()
-        self.ai_detector = WildlifeDetector()
+        self.ai_detector = WildlifeDetector(conf_thresh=self.conf_thresh)
         self.sms_service = SMSService()
         self.sync_client = SyncClient(hq_url=self.hq_url, node_code=self.node_code)
 
@@ -246,11 +249,12 @@ def main():
     parser.add_argument("--hq", default=HQ_SERVER_URL, help="Central HQ server URL (e.g. http://127.0.0.1:5000)")
     parser.add_argument("--trigger-once", action="store_true", help="Trigger single camera capture and inference cycle immediately")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between camera scans in continuous mode (default: 2.0s)")
+    parser.add_argument("--conf", type=float, default=CONFIDENCE_THRESHOLD, help="Confidence threshold 0.0-1.0 (default: 0.85 for 85 percent)")
     parser.add_argument("--pir", action="store_true", help="Enable physical PIR motion sensor interrupt instead of continuous mode")
     parser.add_argument("--test-sync", choices=["tiger", "leopard"], nargs="?", const="tiger", help="Inject test detection into edge.db and sync to HQ")
     args = parser.parse_args()
 
-    daemon = EdgeStationDaemon(node_code=args.node, hq_url=args.hq, enable_pir=args.pir)
+    daemon = EdgeStationDaemon(node_code=args.node, hq_url=args.hq, enable_pir=args.pir, conf_thresh=args.conf)
 
     if args.test_sync:
         daemon.test_sync(species=args.test_sync)

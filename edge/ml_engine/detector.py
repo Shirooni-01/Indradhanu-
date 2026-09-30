@@ -17,12 +17,13 @@ except ImportError:
     from ml_engine.detector import IndradhanuDetector
 
 class WildlifeDetector:
-    def __init__(self, model_path=None):
+    def __init__(self, model_path=None, conf_thresh=CONFIDENCE_THRESHOLD):
+        self.conf_thresh = float(conf_thresh)
         self.detector = IndradhanuDetector.get_instance()
         self.is_real_model_loaded = self.detector.is_loaded
         if self.is_real_model_loaded:
             info = self.detector.get_info()
-            print(f"[Edge AI] Active Model: {info['model_name']} ({info['size_mb']} MB, Device: {info['device']})")
+            print(f"[Edge AI] Active Model: {info['model_name']} ({info['size_mb']} MB, Device: {info['device']}, Conf Thresh: {int(self.conf_thresh * 100)}%)")
         else:
             print("[Edge AI Error] Model weights not loaded. Detections will report negative.")
 
@@ -41,7 +42,7 @@ class WildlifeDetector:
         # 1. Inference on raw memory frame
         if self.is_real_model_loaded and frame_arr is not None:
             detections, annotated, latency = self.detector.predict_frame(
-                frame_arr, conf_thresh=CONFIDENCE_THRESHOLD, annotate=True
+                frame_arr, conf_thresh=self.conf_thresh, annotate=True
             )
             if detections:
                 top = detections[0]
@@ -77,7 +78,7 @@ class WildlifeDetector:
         # 2. Inference on saved image path
         if self.is_real_model_loaded and snap_path and os.path.exists(snap_path):
             detections, annotated, latency, web_path = self.detector.predict_image_file(
-                snap_path, conf_thresh=CONFIDENCE_THRESHOLD, save_to_snapshots=True
+                snap_path, conf_thresh=self.conf_thresh, save_to_snapshots=True
             )
             if detections:
                 top = detections[0]

@@ -68,7 +68,7 @@ TARGET_SPECIES = {
     }
 }
 
-CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.45"))
+CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.85"))
 
 # ---------------------------------------------------------------------------
 # SMS Alert Gateway Settings
