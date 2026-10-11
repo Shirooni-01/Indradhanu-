@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Tactical GIS Map | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Operational Status Ribbon (Populated from actual backend state) -->
+    <div class="operational-ribbon" id="operational-ribbon">
+        <div class="ribbon-left">
+            <span class="pulse-dot" id="ribbon-pulse-dot"></span>
+            <span class="ribbon-state-title" id="ribbon-state-title">CENTRAL COORDINATION SERVER: INITIALIZING...</span>
+            <span class="ribbon-divider">/</span>
+            <span class="ribbon-metric" id="ribbon-nodes-metric"><i class="fa-solid fa-tower-broadcast"></i> 0 ONLINE / 1 REGISTERED EDGE NODES</span>
+            <span class="ribbon-divider hidden-md">/</span>
+            <span class="ribbon-metric hidden-md" id="ribbon-siren-metric"><i class="fa-solid fa-bullhorn"></i> SIREN CONTROLLER: SAFE_TEST</span>
+        </div>
+        <div class="ribbon-right">
+            <span class="ribbon-gps font-mono" id="ribbon-gps-coords"><i class="fa-solid fa-location-crosshairs"></i> PERIMETER: 21.1458° N, 79.0882° E</span>
+        </div>
+    </div>
+
+    <!-- Real-Time Verified Threat Alert Banner -->
+    <div class="threat-alert-banner hidden" id="threat-banner">
+        <div class="threat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="threat-details">
+            <h4 id="threat-title">CRITICAL ALERT: VERIFIED PREDATOR</h4>
+            <p id="threat-desc">Waiting for edge snapshot verification...</p>
+        </div>
+        <div class="threat-banner-actions">
+            <button class="btn btn-sm btn-primary" id="btn-threat-inspect" title="Inspect Verified Snapshot Dossier">
+                <i class="fa-solid fa-eye"></i> <span>Inspect Verification</span>
+            </button>
+            <button class="threat-dismiss" id="btn-dismiss-threat" title="Dismiss Alert">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Operational Grid: Tactical Leaflet Map + Sidebar Telemetry -->
+    <div class="dashboard-grid">
+        <!-- LEFT: GIS MAP & SPATIAL COMMAND -->
+        <div class="map-column">
+            <div class="map-wrapper">
+                <div id="gis-map"></div>
+
+                <!-- Floating Map Controls -->
+                <div class="map-floating-controls">
+                    <span class="fringe-badge"><i class="fa-solid fa-tree"></i> Tadoba-Andhari Buffer Zone</span>
+                    <button class="map-ctrl-btn active" id="btn-layer-sat"><i class="fa-solid fa-satellite"></i> Satellite</button>
+                    <button class="map-ctrl-btn" id="btn-layer-osm"><i class="fa-solid fa-layer-group"></i> Topo Map</button>
+                    <button class="map-ctrl-btn" id="btn-recenter"><i class="fa-solid fa-crosshairs"></i> Recenter</button>
+                </div>
+
+                <!-- Map Legend -->
+                <div class="map-legend">
+                    <div class="legend-title">Perimeter GIS Legend</div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-forest"></span> Forest Fringe Boundary
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-village"></span> Village Buffer Zone (650m)
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-tower"></span> Raspberry Pi Edge Unit
+                    </div>
+                    <div class="legend-row">
+                        <span class="legend-color legend-predator"></span> Central Verified Sighting
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: SELECTED EDGE DEVICE TELEMETRY & VERIFIED DETECTION FEED -->
+        <aside class="dashboard-sidebar">
+            <!-- Selected Edge Device Telemetry Card -->
+            <div class="dash-card station-panel" id="selected-station-panel">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-tower-broadcast text-primary"></i>
+                        <div>
+                            <h3 id="station-panel-title">Edge Device NODE-01</h3>
+                            <span class="card-header-sub" id="station-panel-sector">Tadoba North Perimeter Unit</span>
+                        </div>
+                    </div>
+                    <div class="station-panel-header-actions">
+                        <span class="badge-idle" id="station-panel-status">OFFLINE</span>
+                        <button type="button" class="station-panel-close-btn" id="btn-close-station-panel" title="Close Panel &amp; Expand Map" aria-label="Close Station Panel">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="dash-card-body">
+                    <!-- Energy & Sync Telemetry -->
+                    <div class="telemetry-bar-card">
+                        <div class="telemetry-bar-row">
+                            <span class="telemetry-bar-label"><i class="fa-solid fa-bolt text-accent"></i> Reported Battery</span>
+                            <span class="telemetry-bar-val font-mono" id="station-panel-battery-val">--%</span>
+                        </div>
+                        <div class="battery-meter-bars" id="station-panel-battery-bars">
+                            <div class="bar-segment empty"></div>
+                            <div class="bar-segment empty"></div>
+                            <div class="bar-segment empty"></div>
+                            <div class="bar-segment empty"></div>
+                            <div class="bar-segment empty"></div>
+                        </div>
+                        <div class="telemetry-bar-sub font-mono">
+                            <span id="station-panel-heartbeat">Last Heartbeat: Never</span>
+                            <span id="station-panel-sync">Last Sync: Never</span>
+                        </div>
+                    </div>
+
+                    <!-- Edge & Central Verification Matrix -->
+                    <div class="station-meta-grid">
+                        <div class="meta-box">
+                            <span class="meta-box-label">CONNECTIVITY</span>
+                            <span class="meta-box-val font-mono" id="station-panel-link">OFFLINE</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">PENDING EDGE QUEUE</span>
+                            <span class="meta-box-val font-mono" id="station-panel-queue">0 Events</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">COMPASS BEARING</span>
+                            <span class="meta-box-val font-mono" id="station-panel-bearing"><i class="fa-solid fa-compass"></i> 145°</span>
+                        </div>
+                        <div class="meta-box">
+                            <span class="meta-box-label">SIREN CONTROLLER</span>
+                            <span class="meta-box-val font-mono text-info" id="station-panel-siren">SAFE_TEST</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Verified Wildlife Detection Feed -->
+            <div class="dash-card feed-panel">
+                <div class="dash-card-header">
+                    <div class="card-header-title">
+                        <i class="fa-solid fa-paw text-warning"></i>
+                        <div>
+                            <h3>Edge -> Central Verification Feed</h3>
+                            <span class="card-header-sub">Tiger, Lion, Leopard &amp; Sloth Bear</span>
+                        </div>
+                    </div>
+                    <a href="/history" class="dash-link-more" title="View Verification Ledger">Ledger <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="dash-card-body feed-scroll" id="dashboard-recent-feed">
+                    <!-- Populated dynamically via JS from actual central database -->
+                </div>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/map.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initTacticalMap) window.initTacticalMap();
+    });
+</script>
+{% endblock %}

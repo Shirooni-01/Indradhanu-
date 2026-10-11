@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}Villager &amp; Authority Directory | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-address-book"></i> COMMUNITY EARLY WARNING NETWORK</span>
+                <h2><i class="fa-solid fa-address-book"></i> Villager &amp; Forest Authority Directory</h2>
+            </div>
+            <p class="page-subtitle">Registered community members, Sarpanches, and Forest Rangers who receive SMS early warnings upon central AI verification.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" id="btn-open-add-modal">
+                <i class="fa-solid fa-user-plus"></i> Add New Contact
+            </button>
+        </div>
+    </div>
+
+    <!-- STATS SUMMARY CARDS -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-contacts">0</span>
+                <span class="deck-label">Registered Contacts</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="stat-verified-alerts-count">0</span>
+                <span class="deck-label">Verified Events Logged</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-tower-broadcast"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info" id="stat-protected-sectors">1</span>
+                <span class="deck-label">Registered Edge Nodes</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="contacts-queue-count">0</span>
+                <span class="deck-label">Queued Offline Alerts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SMS GATEWAY & INSTANT TEST DISPATCH PANEL -->
+    <div class="full-table-card" style="margin-bottom: 24px; border-left: 4px solid #10b981;">
+        <div class="table-card-header" style="justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <h4 style="margin: 0;"><i class="fa-solid fa-tower-cell text-info"></i> SMS Alert Gateway:</h4>
+                <span class="badge-active font-mono" id="sms-gateway-mode-badge"><i class="fa-solid fa-circle-check"></i> FAST2SMS</span>
+                <span id="sms-gateway-key-badge" class="badge-idle" style="font-size: 11px;">Checking Gateway...</span>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-outline btn-sm" id="btn-open-sms-settings" onclick="openSmsSettingsModal()">
+                    <i class="fa-solid fa-gear"></i> SMS Gateway API Settings
+                </button>
+            </div>
+        </div>
+        <div style="padding: 16px 20px; background: rgba(0,0,0,0.25); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">
+            <div style="flex: 1; min-width: 280px;">
+                <div style="font-size: 13px; color: #e2e8f0; margin-bottom: 4px;">
+                    <i class="fa-solid fa-mobile-screen-button text-warning"></i> <strong>Test SMS Dispatcher:</strong> Verify emergency SMS delivery to a recipient number.
+                </div>
+                <div style="font-size: 12px; color: #a0aec0;" id="sms-status-helper-text">
+                    Configure Fast2SMS or Twilio credentials in Settings to send live SMS messages.
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <input type="tel" id="test-sms-phone-input" class="form-control" style="width: 190px; padding: 7px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;" value="" placeholder="+91 XXXXXXXXXX">
+                <button class="btn btn-warning btn-sm" id="btn-send-test-sms" onclick="sendDirectTestSms()">
+                    <i class="fa-solid fa-bolt"></i> Send Test SMS
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL TABLE CARD -->
+    <div class="full-table-card">
+        <div class="table-card-header">
+            <h4><i class="fa-solid fa-list-check"></i> Registered SMS Recipients</h4>
+            <div class="table-search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="contact-search-input" placeholder="Search by name, village, or phone...">
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="contacts-table">
+                <thead>
+                    <tr>
+                        <th>Recipient Name</th>
+                        <th>Mobile Number</th>
+                        <th>Village Sector</th>
+                        <th>Role / Designation</th>
+                        <th>Alert Channel</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="contacts-page-table-body">
+                    <!-- Populated dynamically via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD CONTACT -->
+<div class="modal-backdrop hidden" id="modal-add-contact">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus"></i> Register SMS Alert Contact</h3>
+            <button class="modal-close-btn" id="btn-close-add-contact"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form class="contact-form" id="form-add-contact">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="contact-name" placeholder="e.g. Ramesh Patil" required>
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number (+91...)</label>
+                    <input type="tel" id="contact-phone" placeholder="+91 98230 XXXXX" required>
+                </div>
+                <div class="form-group">
+                    <label>Village / Sector</label>
+                    <select id="contact-village">
+                        <option value="Rampur (Sector 1)">Rampur (Sector 1)</option>
+                        <option value="Shivpuri (Sector 2)">Shivpuri (Sector 2)</option>
+                        <option value="Borpada (Sector 3)">Borpada (Sector 3)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="contact-role">
+                        <option value="villager">Villager / Farmer</option>
+                        <option value="sarpanch">Village Sarpanch</option>
+                        <option value="forest_ranger">Forest Ranger / Officer</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center; width: 100%;">
+                    <i class="fa-solid fa-check"></i> Save &amp; Register Contact
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: EDIT CONTACT -->
+<div class="modal-backdrop hidden" id="modal-edit-contact">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-pen"></i> Edit Contact Details</h3>
+            <button type="button" class="modal-close-btn" id="btn-close-edit-contact" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form class="contact-form" id="form-edit-contact">
+                <input type="hidden" id="edit-contact-id">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="edit-contact-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Mobile Number (+91...)</label>
+                    <input type="tel" id="edit-contact-phone" required>
+                </div>
+                <div class="form-group">
+                    <label>Village / Sector</label>
+                    <select id="edit-contact-village">
+                        <option value="Rampur (Sector 1)">Rampur (Sector 1)</option>
+                        <option value="Shivpuri (Sector 2)">Shivpuri (Sector 2)</option>
+                        <option value="Borpada (Sector 3)">Borpada (Sector 3)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="edit-contact-role">
+                        <option value="villager">Villager / Farmer</option>
+                        <option value="sarpanch">Village Sarpanch</option>
+                        <option value="forest_ranger">Forest Ranger / Officer</option>
+                    </select>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+                    <button type="button" class="btn btn-outline" id="btn-cancel-edit-contact">CANCEL</button>
+                    <button type="submit" class="btn btn-primary" id="btn-save-edit-contact">
+                        <i class="fa-solid fa-check"></i> SAVE
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: CONFIRM DELETE CONTACT -->
+<div class="modal-backdrop hidden" id="modal-delete-confirm">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3 style="color: var(--color-ink);"><i class="fa-solid fa-triangle-exclamation text-alert"></i> Confirm Deletion</h3>
+            <button type="button" class="modal-close-btn" id="btn-close-delete-confirm" title="Close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <p style="font-size: 14px; color: var(--color-ink); margin-bottom: 8px; font-weight: 500;" id="delete-confirm-prompt">
+                Are you sure you want to delete this contact?
+            </p>
+            <p style="font-size: 11px; color: var(--color-muted); font-family: var(--font-mono); margin-bottom: 20px;" id="delete-confirm-sub">
+                This record will be removed from the village emergency SMS directory.
+            </p>
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" class="btn btn-outline" id="btn-cancel-delete">CANCEL</button>
+                <button type="button" class="btn btn-danger" id="btn-confirm-delete">
+                    <i class="fa-solid fa-trash-can"></i> DELETE
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SMS GATEWAY API SETTINGS -->
+<div class="modal-backdrop hidden" id="modal-sms-settings">
+    <div class="modal-card modal-sm-card" style="max-width: 520px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-gear text-info"></i> SMS Alert Gateway Configuration</h3>
+            <button type="button" class="modal-close-btn" onclick="closeSmsSettingsModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+            <form id="form-sms-settings" onsubmit="saveSmsGatewayConfig(event)">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label style="font-size: 12px; color: #cbd5e0; font-weight: 600;">SMS Gateway Provider</label>
+                    <select id="sms-mode-select" class="form-control" style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px;" onchange="toggleSmsProviderFields()">
+                        <option value="FAST2SMS">Fast2SMS (Quick SMS API)</option>
+                        <option value="TWILIO">Twilio (Global Cloud SMS)</option>
+                        <option value="GSM_MODEM">Hardware GSM Modem (SIM800L / SIM7600)</option>
+                        <option value="SIMULATED_CONSOLE">Simulation Mode (Terminal Console Log)</option>
+                    </select>
+                </div>
+
+                <div id="fields-fast2sms" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="font-size: 12px; color: #6ee7b7; font-weight: 600; margin: 0;">Fast2SMS API Key</label>
+                    </div>
+                    <input type="password" id="cfg-fast2sms-key" class="form-control" placeholder="Paste your Fast2SMS Dev API Key here..." style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;">
+                </div>
+
+                <div id="fields-twilio" style="display: none; background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 6px; padding: 12px; margin-bottom: 14px;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Account SID</label>
+                        <input type="text" id="cfg-twilio-sid" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Auth Token</label>
+                        <input type="password" id="cfg-twilio-token" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-size: 11px; color: #bae6fd;">Twilio Sender Phone (+1...)</label>
+                        <input type="text" id="cfg-twilio-from" class="form-control" style="width: 100%; padding: 6px 10px; background: #0f1715; border: 1px solid #2d3748; color: #fff; font-family: monospace;">
+                    </div>
+                </div>
+
+                <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+                    <button type="button" class="btn btn-outline" onclick="closeSmsSettingsModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Gateway Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.renderContactsFullTable) window.renderContactsFullTable();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block title %}Verification Ledger | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-shield-cat"></i> CENTRAL VERIFICATION &amp; SIREN AUDIT LEDGER</span>
+                <h2><i class="fa-solid fa-clock-rotate-left"></i> Wildlife Detection &amp; Verification Ledger</h2>
+            </div>
+            <p class="page-subtitle">Edge-submitted snapshots verified by the Central AI Model (Bengal Tiger, Asiatic Lion, Indian Leopard, Indian Sloth Bear) and Village Siren activation outcomes.</p>
+        </div>
+        
+        <div class="page-header-actions">
+            <!-- Filter Pills (4-Species PRD Scope) -->
+            <div class="filter-pills">
+                <button class="filter-pill active" data-filter="all">All Species</button>
+                <button class="filter-pill" data-filter="tiger"><i class="fa-solid fa-paw"></i> Tiger</button>
+                <button class="filter-pill" data-filter="lion"><i class="fa-solid fa-paw"></i> Lion</button>
+                <button class="filter-pill" data-filter="leopard"><i class="fa-solid fa-paw"></i> Leopard</button>
+                <button class="filter-pill" data-filter="bear"><i class="fa-solid fa-paw"></i> Bear</button>
+            </div>
+
+            <!-- View Mode Switcher: List vs Cards -->
+            <div class="view-mode-toggle">
+                <button class="view-toggle-btn active" id="btn-view-list" title="Detailed List View">
+                    <i class="fa-solid fa-list-ul"></i> List
+                </button>
+                <button class="view-toggle-btn" id="btn-view-cards" title="Visual Cards Grid">
+                    <i class="fa-solid fa-table-cells-large"></i> Cards
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SUMMARY METRICS CARDS DECK (Reflects actual database counts) -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-sightings">0</span>
+                <span class="deck-label">Total Edge Events</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="stat-critical-sightings">0 VERIFIED</span>
+                <span class="deck-label">Central AI Verified</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="stat-delayed-sightings">0 Delayed</span>
+                <span class="deck-label">Offline Delayed Sync</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-alert"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-alert" id="stat-siren-triggered">0 SIREN</span>
+                <span class="deck-label">Siren Commands Issued</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIST VIEW CONTAINER (DEFAULT) -->
+    <div class="history-list-view-card" id="history-list-container">
+        <div class="table-wrap">
+            <table class="contacts-table sightings-table">
+                <thead>
+                    <tr>
+                        <th style="width: 90px;">Snapshot</th>
+                        <th>Event ID &amp; Node</th>
+                        <th>Edge Classification</th>
+                        <th>Central AI Verification</th>
+                        <th>GPS Coordinates</th>
+                        <th>Detection &amp; Sync Latency</th>
+                        <th>Village Siren Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="sightings-table-body">
+                    <!-- Rows populated dynamically via JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CARDS GRID VIEW CONTAINER -->
+    <div class="history-grid-container hidden" id="history-cards-container">
+        <!-- Cards injected dynamically via JS -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initHistoryView) window.initHistoryView();
+    });
+</script>
+{% endblock %}

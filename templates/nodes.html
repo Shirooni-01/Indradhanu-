@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Registered Edge Devices | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-tower-broadcast"></i> MULTI-DEVICE EDGE NETWORK</span>
+                <h2><i class="fa-solid fa-tower-broadcast"></i> Registered Forest Edge Devices</h2>
+            </div>
+            <p class="page-subtitle">Raspberry Pi 3 Model B+ (Raspberry Pi OS Lite) edge units running local 4-species detection, SQLite offline buffering, and authenticated central synchronization.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" id="btn-open-add-node">
+                <i class="fa-solid fa-plus"></i> Register Edge Device
+            </button>
+        </div>
+    </div>
+
+    <!-- NODE NETWORK TELEMETRY DECK (Reflects actual backend state) -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-nodes">0</span>
+                <span class="deck-label">Registered Edge Devices</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-signal"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="stat-active-nodes">0 Online</span>
+                <span class="deck-label">Live Connectivity State</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info" id="stat-pending-sync">0 Buffered</span>
+                <span class="deck-label">Pending Edge Queue</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="stat-last-sync">Never</span>
+                <span class="deck-label">Latest Edge Sync</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NODES GRID -->
+    <div class="nodes-grid-container" id="nodes-page-grid">
+        <!-- Rendered dynamically via JS from central database -->
+    </div>
+</div>
+
+<!-- MODAL: REGISTER NEW EDGE DEVICE -->
+<div class="modal-backdrop hidden" id="modal-add-node">
+    <div class="modal-card modal-sm-card">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-tower-broadcast"></i> Register Edge Camera Device</h3>
+            <button class="modal-close-btn" id="btn-close-add-node"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form class="contact-form" id="form-add-node">
+                <div class="form-group">
+                    <label>Device ID / Node Code (Unique Identifier)</label>
+                    <input type="text" id="node-code" placeholder="e.g. NODE-02" required>
+                </div>
+                <div class="form-group">
+                    <label>Station / Perimeter Name</label>
+                    <input type="text" id="node-name" placeholder="e.g. Rampur East Buffer Unit" required>
+                </div>
+                <div class="form-group">
+                    <label>Forest Sector / Zone</label>
+                    <input type="text" id="node-sector" placeholder="e.g. Sector 2 (East Buffer)" required>
+                </div>
+                <div class="form-row" style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Latitude (°N)</label>
+                        <input type="number" step="0.0001" id="node-lat" placeholder="21.1420" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Longitude (°E)</label>
+                        <input type="number" step="0.0001" id="node-lon" placeholder="79.0850" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Edge Camera Hardware</label>
+                    <select id="node-camera-type">
+                        <option value="Raspberry Pi 3B+ Optical/IR Camera">Raspberry Pi 3B+ Optical/IR Camera</option>
+                        <option value="USB UVC Optical Camera (640x480)">USB UVC Optical Camera (640x480)</option>
+                        <option value="Raspberry Pi CSI Night-Vision IR Camera">Raspberry Pi CSI Night-Vision IR Camera</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 8px; justify-content: center; width: 100%;">
+                    <i class="fa-solid fa-check"></i> Register Edge Device
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initNodesView) window.initNodesView();
+    });
+</script>
+{% endblock %}

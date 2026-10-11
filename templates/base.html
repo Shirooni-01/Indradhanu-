@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Project Indradhanu | Wildlife Early Warning System{% endblock %}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Saira+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Forest Command Dark Tactical CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-layout">
+        
+        <!-- COMPACT TACTICAL NAVIGATION SIDEBAR DOCK -->
+        <aside class="sidebar-dock" id="sidebar-dock">
+            <div class="dock-header">
+                <div class="dock-logo" title="Project Indradhanu Crest">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="30" height="30">
+                        <defs>
+                            <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="#69C18A" />
+                                <stop offset="50%" stop-color="#BFD7EA" />
+                                <stop offset="100%" stop-color="#E6A23C" />
+                            </linearGradient>
+                        </defs>
+                        <rect width="100" height="100" rx="16" fill="#101A16"/>
+                        <path d="M50 16 C30 16 18 32 18 54 C18 72 50 86 50 86 C50 86 82 72 82 54 C82 32 70 16 50 16 Z" fill="none" stroke="#2E7D5B" stroke-width="4" stroke-dasharray="5 3"/>
+                        <path d="M30 42 A24 24 0 0 1 70 42" fill="none" stroke="url(#arcGrad)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M36 49 A16 16 0 0 1 64 49" fill="none" stroke="#3FA66B" stroke-width="4" stroke-linecap="round"/>
+                        <polygon points="50,30 38,52 45,52 36,68 64,68 55,52 62,52" fill="#2E7D5B"/>
+                        <circle cx="50" cy="30" r="4" fill="#69C18A"/>
+                    </svg>
+                </div>
+                <div class="dock-title-text">
+                    <h2>INDRADHANU</h2>
+                    <span class="dock-sub">CENTRAL VERIFICATION HQ</span>
+                </div>
+            </div>
+
+            <!-- Vertical Navigation Links (Dashboard camera pipeline removed per PRD) -->
+            <nav class="dock-nav">
+                <a href="/" class="dock-nav-item {% if active_page == 'map' %}active{% endif %}" title="Tactical GIS Map">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span class="nav-name">Tactical GIS Map</span>
+                </a>
+
+                <a href="/history" class="dock-nav-item {% if active_page == 'history' %}active{% endif %}" title="Verified Wildlife Sightings">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span class="nav-name">Verification Ledger</span>
+                    <span class="nav-counter-badge" id="dock-badge-history">0</span>
+                </a>
+
+                <a href="/nodes" class="dock-nav-item {% if active_page == 'nodes' %}active{% endif %}" title="Edge Camera Devices">
+                    <i class="fa-solid fa-tower-broadcast"></i>
+                    <span class="nav-name">Edge Devices</span>
+                    <span class="nav-counter-badge badge-nodes" id="dock-badge-nodes">0</span>
+                </a>
+
+                <a href="/contacts" class="dock-nav-item {% if active_page == 'contacts' %}active{% endif %}" title="Villager & Authority SMS Directory">
+                    <i class="fa-solid fa-address-book"></i>
+                    <span class="nav-name">Villager Directory</span>
+                </a>
+
+                <a href="/system" class="dock-nav-item {% if active_page == 'system' %}active{% endif %}" title="Central AI Verifier, Siren Controller & Diagnostics">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span class="nav-name">Siren &amp; System Health</span>
+                </a>
+            </nav>
+
+            <!-- Dock Footer Link Indicator -->
+            <div class="dock-footer">
+                <div class="dock-status-indicator">
+                    <span class="pulse-dot" id="dock-net-dot"></span>
+                    <span class="dock-status-label" id="dock-net-label">Checking Nodes...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN VIEWPORT: TOP TELEMETRY BAR & PAGE CONTENT -->
+        <div class="main-viewport">
+            
+            <!-- TOP TELEMETRY & TACTICAL STATUS BAR -->
+            <header class="top-header">
+                <div class="telemetry-bar">
+                    <!-- Edge Device Selector Dropdown -->
+                    <div class="telemetry-item item-station">
+                        <span class="item-label"><i class="fa-solid fa-tower-broadcast"></i> REGISTERED EDGE DEVICE</span>
+                        <select id="camera-node-selector" class="station-select-dropdown" title="Select registered edge device">
+                            <option value="NODE-01" selected>NODE-01 (Loading status...)</option>
+                        </select>
+                    </div>
+
+                    <!-- Central AI Verifier Status -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-brain"></i> CENTRAL VERIFIER AI</span>
+                        <span class="item-value status-active" id="pir-status-text">
+                            <i class="fa-solid fa-shield-halved"></i> EFFICIENTNET-B0 READY
+                        </span>
+                    </div>
+
+                    <!-- Village Siren Status -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-bullhorn"></i> VILLAGE SIREN</span>
+                        <span class="item-value text-accent" id="telemetry-siren-status"><i class="fa-solid fa-bell"></i> SAFE_TEST STANDBY</span>
+                    </div>
+
+                    <!-- Edge Connectivity Status -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-tower-cell"></i> EDGE CONNECTIVITY</span>
+                        <span class="item-value status-idle" id="network-status-text">
+                            <i class="fa-solid fa-signal"></i> CHECKING...
+                        </span>
+                    </div>
+
+                    <!-- Pending Sync / SMS Queue -->
+                    <div class="telemetry-item">
+                        <span class="item-label"><i class="fa-solid fa-database"></i> PENDING QUEUE</span>
+                        <span class="item-value status-idle" id="queue-status-text">0 PENDING</span>
+                    </div>
+
+                    <!-- Exact System Location Indicator & Calibrator -->
+                    <div class="telemetry-item" id="item-system-location" title="Exact System Location. Click to view or recalibrate.">
+                        <span class="item-label"><i class="fa-solid fa-location-crosshairs text-info"></i> SYSTEM GPS</span>
+                        <span class="item-value font-mono text-info" id="system-location-text" style="cursor: pointer;" onclick="openLocationCalibrator()">
+                            <i class="fa-solid fa-location-dot"></i> <span id="gps-lat-lon">21.1458°N, 79.0882°E</span>
+                        </span>
+                    </div>
+
+                    <!-- System Clock -->
+                    <div class="telemetry-item clock-item">
+                        <span class="item-label"><i class="fa-regular fa-clock"></i> SERVER TIME</span>
+                        <span class="item-value clock-time" id="system-clock">--:--:--</span>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="header-actions">
+                    <button class="btn btn-icon" id="btn-sound-toggle" title="Mute/Unmute Dashboard Audio Alert">
+                        <i class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- GLOBAL REAL-TIME VERIFIED THREAT BANNER -->
+            <div class="threat-alert-banner hidden" id="global-threat-banner" style="position: sticky; top: 0; z-index: 1060; border-bottom: 2px solid var(--color-alert); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); margin-bottom: 2px;">
+                <div style="display: flex; align-items: center; gap: 14px; flex: 1;">
+                    <div class="threat-icon" style="font-size: 26px; color: var(--color-alert);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <div class="threat-details" style="flex: 1;">
+                        <h4 id="global-threat-title" style="color: #ef4444; margin: 0 0 2px 0; font-size: 16px; font-weight: 700; letter-spacing: 1px;">CENTRAL VERIFIED ALERT</h4>
+                        <p id="global-threat-desc" style="margin: 0; font-size: 13px; color: #cbd5e1;">Edge snapshot verified by Central AI.</p>
+                    </div>
+                </div>
+                <div class="threat-banner-actions" style="display: flex; align-items: center; gap: 10px;">
+                    <button class="btn btn-sm btn-primary" id="btn-global-inspect" title="Inspect Verified Snapshot Dossier">
+                        <i class="fa-solid fa-eye"></i> <span>Inspect Verification</span>
+                    </button>
+                    <a href="/" class="btn btn-sm btn-outline" id="btn-global-map" title="View on Tactical GIS Map">
+                        <i class="fa-solid fa-map-location-dot"></i> <span>View Map</span>
+                    </a>
+                    <button class="threat-dismiss" id="btn-global-dismiss" title="Dismiss Banner" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.5); color: #fff; width: 32px; height: 32px; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- DYNAMIC PAGE CONTENT INJECTED HERE -->
+            <main class="page-content">
+                {% block content %}{% endblock %}
+            </main>
+
+        </div>
+
+    </div>
+
+    <!-- UNIVERSAL SNAPSHOT & CENTRAL VERIFICATION DOSSIER MODAL -->
+    <div class="modal-backdrop hidden" id="modal-snapshot">
+        <div class="modal-card modal-snapshot-card modal-fullscreen-dossier" id="snapshot-modal">
+            <div class="modal-header dossier-header">
+                <div class="dossier-header-left">
+                    <span class="dossier-category-tag"><i class="fa-solid fa-shield-cat"></i> EDGE DETECTION + CENTRAL AI VERIFICATION DOSSIER</span>
+                    <h3 id="snapshot-modal-title"><i class="fa-solid fa-paw"></i> Verification Snapshot</h3>
+                </div>
+                <div class="dossier-header-actions">
+                    <span class="dossier-node-pill" id="dossier-node-pill"><i class="fa-solid fa-tower-broadcast"></i> NODE-01</span>
+                    <span class="dossier-auto-pill" id="dossier-auto-pill" title="Central Verification Status">
+                        <i class="fa-solid fa-robot"></i> <span id="dossier-auto-status">VERIFIED</span>
+                    </span>
+                    <a href="/history" class="btn btn-outline btn-sm" id="btn-inspect-view-archive" title="View Verification Ledger">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Ledger
+                    </a>
+                    <button class="btn btn-warning btn-sm btn-manual-alert" id="btn-inspect-dispatch-sms" title="Manually Dispatch Emergency SMS Broadcast">
+                        <i class="fa-solid fa-paper-plane"></i> <span id="btn-manual-alert-text">MANUAL SMS ALERT</span>
+                    </button>
+                    <button class="modal-close-btn" id="btn-close-snapshot" title="Close Dossier (Esc)">
+                        <i class="fa-solid fa-xmark"></i> <span>CLOSE</span>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body snapshot-modal-body dossier-modal-body">
+                <!-- Left Panel: Edge Snapshot Viewer -->
+                <div class="dossier-visual-column">
+                    <div class="snapshot-large-wrap" id="snapshot-hud-wrapper">
+                        <img id="snapshot-modal-img" src="" alt="Edge Wildlife Snapshot">
+                        
+                        <div class="hud-corner-bracket hud-tl"></div>
+                        <div class="hud-corner-bracket hud-tr"></div>
+                        <div class="hud-corner-bracket hud-bl"></div>
+                        <div class="hud-corner-bracket hud-br"></div>
+                        
+                        <div class="hud-overlay-top">
+                            <span class="hud-rec-indicator"><span class="pulse-dot"></span> EDGE SNAPSHOT</span>
+                            <span class="hud-sensor-model" id="dossier-hud-sensor">EfficientNet-B0 Verifier</span>
+                        </div>
+
+                        <div class="hud-heat-signature-tag" id="dossier-hud-temp">
+                            <i class="fa-solid fa-shield-halved"></i> CENTRAL AI VERIFIED
+                        </div>
+
+                        <div class="hud-target-reticle">
+                            <div class="reticle-box">
+                                <span class="reticle-label" id="reticle-species-label">TARGET VERIFIED</span>
+                            </div>
+                        </div>
+
+                        <div class="hud-overlay-bottom">
+                            <span id="dossier-hud-bearing"><i class="fa-solid fa-compass"></i> AZ: 145°</span>
+                            <span id="dossier-hud-node"><i class="fa-solid fa-camera"></i> NODE-01</span>
+                        </div>
+                    </div>
+
+                    <div class="dossier-image-toolbar">
+                        <div class="toolbar-label"><i class="fa-solid fa-sliders"></i> FILTER:</div>
+                        <div class="toolbar-filter-buttons">
+                            <button class="filter-btn active" data-img-filter="normal">ORIGINAL</button>
+                            <button class="filter-btn" data-img-filter="ironbow">ENHANCED</button>
+                            <button class="filter-btn" data-img-filter="invert">INVERT</button>
+                            <button class="filter-btn" data-img-filter="contrast">CONTRAST</button>
+                        </div>
+                        <div class="toolbar-filepath" id="dossier-filepath" title="Snapshot storage path">
+                            <i class="fa-regular fa-file-image"></i> <span>/static/snapshots/...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Panel: Edge vs Central Verification & Siren Telemetry -->
+                <div class="dossier-meta-column">
+                    <div class="snapshot-meta-details dossier-grid" id="snapshot-modal-meta">
+                        <!-- Dynamically populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CALIBRATE / SET SYSTEM LOCATION -->
+    <div class="modal-backdrop hidden" id="modal-calibrate-location">
+        <div class="modal-card modal-sm-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-location-crosshairs text-info"></i> Calibrate Station Coordinates</h3>
+                <button class="modal-close-btn" onclick="closeLocationCalibrator()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: #a0aec0; margin-bottom: 16px;">
+                    Configure GPS coordinates for the selected station on the Tactical GIS Map.
+                </p>
+                <div style="margin-bottom: 16px; text-align: center;">
+                    <button type="button" class="btn btn-warning" id="btn-detect-browser-gps" onclick="triggerBrowserGPS(true)" style="width: 100%;">
+                        <i class="fa-solid fa-crosshairs"></i> Detect Browser GPS Coordinates
+                    </button>
+                    <div id="gps-detection-status" style="font-size: 11px; color: #718096; margin-top: 6px;">
+                        Uses browser geolocation API if available
+                    </div>
+                </div>
+                <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0;">
+                <form id="form-calibrate-location" onsubmit="saveCustomLocation(event)">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 12px; color: #cbd5e0;">Latitude (°N)</label>
+                        <input type="number" step="0.000001" id="calib-lat" class="form-control" style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label style="font-size: 12px; color: #cbd5e0;">Longitude (°E)</label>
+                        <input type="number" step="0.000001" id="calib-lon" class="form-control" style="width: 100%; padding: 8px 12px; background: #0f1715; border: 1px solid #2d3748; color: #fff; border-radius: 4px; font-family: monospace;" required>
+                    </div>
+                    <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn btn-outline" onclick="closeLocationCalibrator()">Cancel</button>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Coordinates</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIO SIREN FOR BROWSER ALERTS -->
+    <audio id="siren-audio" preload="auto">
+        <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    </audio>
+
+    <!-- Leaflet JS for Map -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Custom Scripts -->
+    <script src="/static/js/app.js"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
