@@ -172,6 +172,7 @@ class EdgeStationDaemon:
                     queue_sms_alert(det_id, fail["phone"], fail["name"], fail["message"], max_retries=3, error_msg=fail.get("error"))
 
             print("[Sync] Uploading pending event & snapshot to Central Server for AI verification...")
+            self.sync_client.send_heartbeat(heading=self.fixed_heading, status="ONLINE_ACTIVE")
             synced = self.sync_client.sync_pending_detections()
             if synced > 0:
                 print(f"[Sync SUCCESS] Event {saved_event_id} uploaded and verified by Central Server!")

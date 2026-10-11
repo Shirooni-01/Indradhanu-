@@ -133,6 +133,12 @@ function updateTopBarTelemetry(statusData) {
     }
 
     // Dashboard ribbon metrics
+    const ribbonTitle = document.getElementById('ribbon-state-title');
+    if (ribbonTitle) {
+        ribbonTitle.textContent = onlineCount > 0
+            ? 'CENTRAL COORDINATION SERVER: ONLINE · EDGE LINK ACTIVE'
+            : 'CENTRAL COORDINATION SERVER: READY (AWAITING EDGE NODE)';
+    }
     const ribbonNodes = document.getElementById('ribbon-nodes-metric');
     if (ribbonNodes) {
         ribbonNodes.innerHTML = `<i class="fa-solid fa-tower-broadcast"></i> ${onlineCount}/${totalCount} Nodes Online`;
