@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Siren Controller &amp; System Health | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-microchip"></i> CENTRAL VERIFICATION, SIREN CONTROLLER &amp; EDGE TELEMETRY</span>
+                <h2><i class="fa-solid fa-microchip"></i> Siren Controller, Central AI &amp; Fleet Diagnostics</h2>
+            </div>
+            <p class="page-subtitle">Village Siren Controller test &amp; acknowledgement ledger, Central AI Verification model status, PostgreSQL/SQLite persistence, and multi-device connectivity.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-warning" id="btn-trigger-siren-test" onclick="triggerSafeSirenTest()">
+                <i class="fa-solid fa-bullhorn"></i> Trigger Safe Siren Test
+            </button>
+            <button class="btn btn-outline" id="btn-manual-sync">
+                <i class="fa-solid fa-arrows-rotate"></i> Flush Queued SMS
+            </button>
+        </div>
+    </div>
+
+    <!-- CENTRAL AI VERIFIER, DATABASE & SIREN CONTROLLER STATUS DECK -->
+    <div class="contacts-stat-deck" style="margin-bottom: 24px;">
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-brain"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="sys-verifier-model">EfficientNet-B0</span>
+                <span class="deck-label">Central Verification AI</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-database"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info" id="sys-db-engine">Checking...</span>
+                <span class="deck-label">Central Database Engine</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-bullhorn"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="sys-siren-mode">SAFE_TEST</span>
+                <span class="deck-label">Siren Controller Mode</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-alert"><i class="fa-solid fa-bolt"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="sys-siren-physical">INACTIVE (SAFE)</span>
+                <span class="deck-label">Physical 115dB Relay State</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTERED EDGE DEVICES FLEET HEALTH -->
+    <div class="full-table-card" style="padding: 24px;">
+        <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--color-hairline); padding-bottom: 16px;">
+            <div>
+                <h4><i class="fa-solid fa-tower-broadcast"></i> Registered Edge Devices Connectivity &amp; Sync Status</h4>
+                <p style="font-size: 11px; font-family: var(--font-mono); color: var(--color-muted); letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">
+                    Real-time backend state: Last heartbeat, last synchronization timestamp, and pending offline queue
+                </p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <div class="view-mode-toggle" style="margin-right: 6px;">
+                    <button class="view-toggle-btn active" id="btn-cam-view-cards" title="Cards View">
+                        <i class="fa-solid fa-table-cells-large"></i> Cards
+                    </button>
+                    <button class="view-toggle-btn" id="btn-cam-view-list" title="Table View">
+                        <i class="fa-solid fa-list-ul"></i> List
+                    </button>
+                </div>
+                <span class="badge-idle" id="fleet-health-summary-badge"><i class="fa-solid fa-circle-info"></i> CHECKING NODES...</span>
+                <button class="btn btn-outline btn-sm" id="btn-scan-fleet-health">
+                    <i class="fa-solid fa-satellite-dish"></i> Refresh Telemetry
+                </button>
+            </div>
+        </div>
+
+        <!-- 1. CARDS DECK -->
+        <div class="cam-hud-grid" id="system-cameras-hud-grid">
+            <!-- Populated dynamically from /api/nodes -->
+        </div>
+
+        <!-- 2. TABULAR METRICS VIEW -->
+        <div class="table-wrap hidden" id="system-cameras-table-wrap" style="margin-top: 16px;">
+            <table class="contacts-table" id="planted-cameras-table">
+                <thead>
+                    <tr>
+                        <th>Edge Device</th>
+                        <th>Sector &amp; GPS</th>
+                        <th>Camera &amp; Firmware</th>
+                        <th>Last Heartbeat</th>
+                        <th>Last Sync At</th>
+                        <th>Pending Queue</th>
+                        <th>Battery</th>
+                        <th>Connectivity</th>
+                        <th style="text-align: right;">Diagnostics</th>
+                    </tr>
+                </thead>
+                <tbody id="system-cameras-body">
+                    <!-- Populated dynamically from /api/nodes -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- VILLAGE SIREN ACTIVATION & ACKNOWLEDGEMENT AUDIT LEDGER -->
+    <div class="full-table-card" style="margin-top: 24px;">
+        <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+                <h4><i class="fa-solid fa-bullhorn text-warning"></i> Village Siren Controller Activation &amp; Acknowledgement History</h4>
+                <p style="font-size: 11px; font-family: var(--font-mono); color: var(--color-muted); margin-top: 2px;">
+                    Distinguishes between COMMAND_SENT, TEST_MODE_VERIFIED (no physical hardware), ACKNOWLEDGED_ACTIVE (physical GPIO relay), and SUPPRESSED_POLICY
+                </p>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="loadSirenHistoryTable()">
+                <i class="fa-solid fa-rotate"></i> Refresh Siren Log
+            </button>
+        </div>
+        <div class="table-wrap">
+            <table class="contacts-table">
+                <thead>
+                    <tr>
+                        <th>Triggered At</th>
+                        <th>Event ID</th>
+                        <th>Node</th>
+                        <th>Verified Species &amp; Conf</th>
+                        <th>Policy Decision</th>
+                        <th>Siren Mode</th>
+                        <th>Command vs Ack Status</th>
+                        <th>Physical Relay Active</th>
+                    </tr>
+                </thead>
+                <tbody id="siren-history-body">
+                    <!-- Populated dynamically from /api/siren/history -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: EDGE DEVICE DIAGNOSTICS -->
+<div class="modal-backdrop hidden" id="modal-node-health">
+    <div class="modal-card modal-diag-card">
+        <div class="modal-header diag-modal-header">
+            <div class="diag-header-left">
+                <span class="sub-badge"><i class="fa-solid fa-stethoscope"></i> EDGE DEVICE TELEMETRY</span>
+                <h3 id="modal-health-title"><i class="fa-solid fa-microchip"></i> DEVICE DIAGNOSTICS</h3>
+            </div>
+            <button class="modal-close-btn" id="btn-close-node-health" title="Close Diagnostics (Esc)">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body diag-modal-body" id="node-health-modal-body">
+            <!-- Dynamic Telemetry Injected via JS -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.initSystemHealthView) {
+            window.initSystemHealthView();
+        }
+        if (window.loadSirenHistoryTable) {
+            window.loadSirenHistoryTable();
+        }
+    });
+</script>
+{% endblock %}

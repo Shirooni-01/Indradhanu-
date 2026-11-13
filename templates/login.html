@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Project Indradhanu RFO Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #090e0c;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .login-card {
+            background: #101a16;
+            border: 1px solid #1e3328;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 400px;
+            padding: 32px;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .login-logo {
+            margin-bottom: 12px;
+        }
+        .login-title {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 26px;
+            letter-spacing: 1.5px;
+            margin: 0;
+            color: #69C18A;
+            text-transform: uppercase;
+        }
+        .login-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+            letter-spacing: 0.5px;
+        }
+        .login-form .form-group {
+            margin-bottom: 18px;
+        }
+        .login-form label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #cbd5e1;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .login-form input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0b1310;
+            border: 1px solid #234032;
+            border-radius: 4px;
+            color: #f8fafc;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .login-form input:focus {
+            border-color: #69C18A;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 11px;
+            background: #198754;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+        .login-btn:hover {
+            background: #157347;
+        }
+        .alert-box {
+            padding: 10px 14px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .login-footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 11px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="login-header">
+            <div class="login-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="48" height="48">
+                    <rect width="100" height="100" rx="16" fill="#101A16"/>
+                    <path d="M50 16 C30 16 18 32 18 54 C18 72 50 86 50 86 C50 86 82 72 82 54 C82 32 70 16 50 16 Z" fill="none" stroke="#2E7D5B" stroke-width="4" stroke-dasharray="5 3"/>
+                    <polygon points="50,30 38,52 45,52 36,68 64,68 55,52 62,52" fill="#2E7D5B"/>
+                    <circle cx="50" cy="30" r="4" fill="#69C18A"/>
+                </svg>
+            </div>
+            <h1 class="login-title">INDRADHANU</h1>
+            <div class="login-sub">Range Forest Officer (RFO) Dashboard</div>
+        </div>
+
+        {% if error %}
+        <div class="alert-box">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <form class="login-form" method="POST" action="/login">
+            <input type="hidden" name="next" value="{{ next_url or '' }}">
+            <div class="form-group">
+                <label for="username">Login ID / Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter Login ID" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter Password" required>
+            </div>
+            <button type="submit" class="login-btn">
+                <i class="fa-solid fa-right-to-bracket"></i> Sign In
+            </button>
+        </form>
+
+        <div class="login-footer">
+            Forest Department Early Warning System &bull; PRD v2.0
+        </div>
+    </div>
+</body>
+</html>

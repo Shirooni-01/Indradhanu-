@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Node Info | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-tower-broadcast"></i> EDGE MONITORING NETWORK</span>
+                <h2><i class="fa-solid fa-tower-broadcast"></i> Node Info</h2>
+            </div>
+            <p class="page-subtitle">Registered remote wildlife monitoring nodes transmitting via LoRa.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" onclick="openAddNodeModal()">
+                <i class="fa-solid fa-plus"></i> Add Node
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="loadNodesData()" title="Refresh Nodes">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- STATS CARDS -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-network-wired"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-nodes-cnt">0</span>
+                <span class="deck-label">Registered Nodes</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-signal"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success" id="stat-active-nodes-cnt">0 Active</span>
+                <span class="deck-label">Reporting Active</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-warning"><i class="fa-solid fa-bell"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-warning" id="stat-latest-notif-time">None</span>
+                <span class="deck-label">Latest Notification</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- NODE LIST TABLE (PRD SECTION 8.3) -->
+    <div class="history-list-view-card">
+        <div class="table-wrap">
+            <table class="contacts-table" id="nodes-table">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">Sr. No.</th>
+                        <th style="width: 140px;">Node Number</th>
+                        <th>Node Name</th>
+                        <th>Location</th>
+                        <th>Install Date and Time</th>
+                        <th>Last Notification</th>
+                        <th style="width: 100px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="nodes-table-body">
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 24px; color: #94a3b8;">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Loading Nodes...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD / EDIT NODE FORM -->
+<div class="modal-backdrop hidden" id="modal-node-form">
+    <div class="modal-card modal-sm-card" style="max-width: 480px;">
+        <div class="modal-header">
+            <h3 id="modal-node-title"><i class="fa-solid fa-tower-broadcast"></i> Add Node</h3>
+            <button class="modal-close-btn" onclick="closeNodeModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="node-modal-alert" style="display:none; padding:10px 14px; border-radius:4px; margin-bottom:14px; font-size:13px;"></div>
+            <form class="contact-form" id="form-node" onsubmit="handleNodeFormSubmit(event)">
+                <div class="form-group">
+                    <label>Node Number (e.g. N01 or NODE-01) <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="input-node-code" placeholder="N01" required style="font-family: monospace;">
+                    <span style="font-size:11px; color:#94a3b8;">Unique and stable identifier for LoRa messages.</span>
+                </div>
+                <div class="form-group">
+                    <label>Node Name (e.g. Node 1, village name) <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="input-node-name" placeholder="Rampur Sector Node 1" required>
+                </div>
+                <div class="form-row" style="display:flex; gap:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label>Latitude (°N) <span style="color:#ef4444;">*</span></label>
+                        <input type="number" step="0.0001" id="input-node-lat" placeholder="21.1458" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Longitude (°E) <span style="color:#ef4444;">*</span></label>
+                        <input type="number" step="0.0001" id="input-node-lon" placeholder="79.0882" required>
+                    </div>
+                </div>
+                <div style="font-size:11px; color:#94a3b8; margin-top:-6px; margin-bottom:16px;">
+                    <i class="fa-solid fa-circle-info"></i> Note: Editing location updates future detections and does not alter historical coordinates.
+                </div>
+                <button type="submit" id="btn-save-node" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px;">
+                    <i class="fa-solid fa-check"></i> Save Node
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let registeredNodesList = [];
+let isEditingExistingNode = false;
+
+async function loadNodesData() {
+    try {
+        const resp = await fetch('/api/nodes');
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.nodes)) {
+            registeredNodesList = data.nodes;
+            renderNodesTable();
+        }
+    } catch (e) {
+        console.error('Failed loading nodes:', e);
+        const tbody = document.getElementById('nodes-table-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#ef4444;">Error loading node information.</td></tr>';
+        }
+    }
+}
+
+function renderNodesTable() {
+    const tbody = document.getElementById('nodes-table-body');
+    if (!tbody) return;
+
+    const totalEl = document.getElementById('stat-total-nodes-cnt');
+    const activeEl = document.getElementById('stat-active-nodes-cnt');
+    const latestNotifEl = document.getElementById('stat-latest-notif-time');
+    const dockBadge = document.getElementById('dock-badge-nodes');
+
+    if (totalEl) totalEl.textContent = registeredNodesList.length;
+    if (dockBadge) dockBadge.textContent = registeredNodesList.length;
+
+    const activeNodes = registeredNodesList.filter(n => n.status === 'ONLINE_ACTIVE' || n.is_online);
+    if (activeEl) activeEl.textContent = `${activeNodes.length} Active`;
+
+    // Find latest notification among nodes
+    let latestTime = null;
+    registeredNodesList.forEach(n => {
+        if (n.last_notification && (!latestTime || n.last_notification > latestTime)) {
+            latestTime = n.last_notification;
+        }
+    });
+    if (latestNotifEl) latestNotifEl.textContent = latestTime ? latestTime.slice(11, 19) : 'None';
+
+    if (registeredNodesList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:32px; color:#94a3b8;">No nodes registered yet. Click "Add Node" above.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    registeredNodesList.forEach((node, idx) => {
+        const tr = document.createElement('tr');
+        const lat = parseFloat(node.latitude || 0).toFixed(4);
+        const lon = parseFloat(node.longitude || 0).toFixed(4);
+        const locationStr = `${lat}° N, ${lon}° E`;
+        const installStr = node.install_date || node.created_at || 'Registered';
+        const notifStr = node.last_notification ? `<span style="color:#10b981;"><i class="fa-solid fa-clock"></i> ${node.last_notification}</span>` : '<span class="text-muted">No detections yet</span>';
+
+        tr.innerHTML = `
+            <td class="font-mono text-muted">${idx + 1}</td>
+            <td>
+                <span class="badge-nodes" style="padding: 3px 8px; font-weight: 700; font-family: monospace;">
+                    <i class="fa-solid fa-tower-broadcast"></i> ${node.node_code}
+                </span>
+            </td>
+            <td>
+                <strong style="color: #f8fafc; font-size: 14px;">${node.node_name || ('Node ' + (idx + 1))}</strong>
+            </td>
+            <td class="font-mono" style="font-size: 12px; color: #60a5fa;">
+                <i class="fa-solid fa-location-dot"></i> ${locationStr}
+            </td>
+            <td class="font-mono text-muted" style="font-size: 12px;">
+                ${installStr}
+            </td>
+            <td class="font-mono" style="font-size: 12px;">
+                ${notifStr}
+            </td>
+            <td style="text-align: right;">
+                <button class="btn btn-outline btn-sm" onclick="openEditNodeModal('${node.node_code}')" title="Edit Node Name &amp; Location">
+                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openAddNodeModal() {
+    isEditingExistingNode = false;
+    document.getElementById('modal-node-title').innerHTML = '<i class="fa-solid fa-tower-broadcast"></i> Add Node';
+    document.getElementById('input-node-code').value = '';
+    document.getElementById('input-node-code').readOnly = false;
+    document.getElementById('input-node-name').value = '';
+    document.getElementById('input-node-lat').value = '';
+    document.getElementById('input-node-lon').value = '';
+    hideNodeAlert();
+    document.getElementById('modal-node-form').classList.remove('hidden');
+}
+
+function openEditNodeModal(nodeCode) {
+    const node = registeredNodesList.find(n => n.node_code === nodeCode);
+    if (!node) return;
+    isEditingExistingNode = true;
+    document.getElementById('modal-node-title').innerHTML = `<i class="fa-solid fa-pen-to-square"></i> Edit Node ${node.node_code}`;
+    document.getElementById('input-node-code').value = node.node_code;
+    document.getElementById('input-node-code').readOnly = true;
+    document.getElementById('input-node-name').value = node.node_name || '';
+    document.getElementById('input-node-lat').value = node.latitude;
+    document.getElementById('input-node-lon').value = node.longitude;
+    hideNodeAlert();
+    document.getElementById('modal-node-form').classList.remove('hidden');
+}
+
+function closeNodeModal() {
+    document.getElementById('modal-node-form').classList.add('hidden');
+}
+
+function showNodeAlert(msg, isSuccess) {
+    const box = document.getElementById('node-modal-alert');
+    box.style.display = 'block';
+    box.style.background = isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    box.style.border = isSuccess ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)';
+    box.style.color = isSuccess ? '#6ee7b7' : '#fca5a5';
+    box.innerHTML = msg;
+}
+
+function hideNodeAlert() {
+    document.getElementById('node-modal-alert').style.display = 'none';
+}
+
+async function handleNodeFormSubmit(e) {
+    e.preventDefault();
+    const nodeCode = document.getElementById('input-node-code').value.trim();
+    const nodeName = document.getElementById('input-node-name').value.trim();
+    const lat = parseFloat(document.getElementById('input-node-lat').value);
+    const lon = parseFloat(document.getElementById('input-node-lon').value);
+    const btn = document.getElementById('btn-save-node');
+
+    if (!nodeCode || !nodeName || isNaN(lat) || isNaN(lon)) {
+        showNodeAlert('Please fill out all required fields with valid coordinates.', false);
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    try {
+        const resp = await fetch('/api/nodes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                node_code: nodeCode,
+                node_name: nodeName,
+                latitude: lat,
+                longitude: lon,
+            })
+        });
+        const res = await resp.json();
+        if (res.success) {
+            showNodeAlert('Node saved successfully.', true);
+            setTimeout(() => {
+                closeNodeModal();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Node';
+                loadNodesData();
+            }, 600);
+        } else {
+            showNodeAlert(res.message || 'Error saving node.', false);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Node';
+        }
+    } catch (err) {
+        showNodeAlert('Network error: ' + err.message, false);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Node';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadNodesData();
+});
+</script>
+{% endblock %}

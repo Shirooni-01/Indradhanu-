@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Authority Details | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container">
+    <div class="page-header-row">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-address-book"></i> ALERT NOTIFICATION RECIPIENTS</span>
+                <h2><i class="fa-solid fa-address-book"></i> Authority Details</h2>
+            </div>
+            <p class="page-subtitle">Configure Forest Department officers and authorities who receive automated SMS and WhatsApp alerts upon wildlife detection.</p>
+        </div>
+        <div class="page-header-actions">
+            <button class="btn btn-primary" onclick="openAddContactModal()">
+                <i class="fa-solid fa-user-plus"></i> Add Contact
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="loadAuthorityContacts()" title="Refresh Directory">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- STATS SUMMARY CARDS -->
+    <div class="contacts-stat-deck">
+        <div class="deck-card">
+            <div class="deck-icon"><i class="fa-solid fa-users"></i></div>
+            <div class="deck-content">
+                <span class="deck-num" id="stat-total-auth-contacts">0</span>
+                <span class="deck-label">Configured Authorities</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-success"><i class="fa-solid fa-comment-sms"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-success">SMS / WhatsApp</span>
+                <span class="deck-label">Notification Channels</span>
+            </div>
+        </div>
+        <div class="deck-card">
+            <div class="deck-icon text-info"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="deck-content">
+                <span class="deck-num text-info">Automated</span>
+                <span class="deck-label">Dispatch on Detection</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUTHORITY CONTACTS TABLE (PRD SECTION 8.4) -->
+    <div class="history-list-view-card">
+        <div class="table-wrap">
+            <table class="contacts-table" id="authority-contacts-table">
+                <thead>
+                    <tr>
+                        <th style="width: 70px;">Sr. No.</th>
+                        <th>Name</th>
+                        <th>Post / Designation</th>
+                        <th>Contact Number</th>
+                        <th style="width: 100px; text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="authority-contacts-body">
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 24px; color: #94a3b8;">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Loading Contacts...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ADD CONTACT -->
+<div class="modal-backdrop hidden" id="modal-add-contact">
+    <div class="modal-card modal-sm-card" style="max-width: 460px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus"></i> Add Authority Contact</h3>
+            <button class="modal-close-btn" onclick="closeAddContactModal()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="contact-modal-alert" style="display:none; padding:10px 14px; border-radius:4px; margin-bottom:14px; font-size:13px;"></div>
+            <form class="contact-form" id="form-contact" onsubmit="handleContactSubmit(event)">
+                <div class="form-group">
+                    <label>Full Name <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="contact-name" placeholder="e.g. Range Officer R. Sharma" required>
+                </div>
+                <div class="form-group">
+                    <label>Post / Designation <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="contact-post" placeholder="e.g. Range Forest Officer (RFO)" required>
+                </div>
+                <div class="form-group">
+                    <label>Contact Number (with Country Code) <span style="color:#ef4444;">*</span></label>
+                    <input type="tel" id="contact-phone" placeholder="+919876543210" required style="font-family: monospace;">
+                    <span style="font-size:11px; color:#94a3b8;">Includes country code (+91 for India). Duplicate numbers are prevented.</span>
+                </div>
+                <button type="submit" id="btn-save-contact" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 11px; margin-top: 8px;">
+                    <i class="fa-solid fa-check"></i> Save Authority Contact
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let authorityContactsList = [];
+
+async function loadAuthorityContacts() {
+    try {
+        const resp = await fetch('/api/contacts');
+        const data = await resp.json();
+        if (data.success && Array.isArray(data.contacts)) {
+            authorityContactsList = data.contacts;
+            renderAuthorityTable();
+        }
+    } catch (e) {
+        console.error('Failed loading contacts:', e);
+        const tbody = document.getElementById('authority-contacts-body');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#ef4444;">Error loading contacts directory.</td></tr>';
+        }
+    }
+}
+
+function renderAuthorityTable() {
+    const tbody = document.getElementById('authority-contacts-body');
+    if (!tbody) return;
+
+    const statCount = document.getElementById('stat-total-auth-contacts');
+    if (statCount) statCount.textContent = authorityContactsList.length;
+
+    if (authorityContactsList.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 32px; color: #94a3b8;">No notification recipients configured yet. Click "Add Contact" above.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = '';
+    authorityContactsList.forEach((c, idx) => {
+        const tr = document.createElement('tr');
+        const name = c.name || c.full_name || 'Officer';
+        const post = c.post_designation || c.role || 'Forest Officer';
+        const phone = c.phone_number || '';
+
+        tr.innerHTML = `
+            <td class="font-mono text-muted">${idx + 1}</td>
+            <td>
+                <strong style="color: #f8fafc; font-size: 14px;">${name}</strong>
+            </td>
+            <td>
+                <span class="badge-role" style="background: rgba(16, 185, 129, 0.12); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); padding: 3px 8px; border-radius: 4px; font-size: 12px;">
+                    ${post}
+                </span>
+            </td>
+            <td class="font-mono" style="font-size: 13px; color: #60a5fa;">
+                <i class="fa-solid fa-phone"></i> ${phone}
+            </td>
+            <td style="text-align: right;">
+                <button class="btn btn-outline btn-sm" style="color: #f87171; border-color: rgba(239, 68, 68, 0.4);" onclick="deleteAuthorityContact(${c.id}, '${name.replace(/'/g, "\\'")}')">
+                    <i class="fa-solid fa-trash"></i> Delete
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function openAddContactModal() {
+    document.getElementById('contact-name').value = '';
+    document.getElementById('contact-post').value = '';
+    document.getElementById('contact-phone').value = '';
+    hideContactAlert();
+    document.getElementById('modal-add-contact').classList.remove('hidden');
+}
+
+function closeAddContactModal() {
+    document.getElementById('modal-add-contact').classList.add('hidden');
+}
+
+function showContactAlert(msg, isSuccess) {
+    const box = document.getElementById('contact-modal-alert');
+    box.style.display = 'block';
+    box.style.background = isSuccess ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+    box.style.border = isSuccess ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)';
+    box.style.color = isSuccess ? '#6ee7b7' : '#fca5a5';
+    box.innerHTML = msg;
+}
+
+function hideContactAlert() {
+    document.getElementById('contact-modal-alert').style.display = 'none';
+}
+
+async function handleContactSubmit(e) {
+    e.preventDefault();
+    const name = document.getElementById('contact-name').value.trim();
+    const post = document.getElementById('contact-post').value.trim();
+    let phone = document.getElementById('contact-phone').value.trim();
+    const btn = document.getElementById('btn-save-contact');
+
+    // Phone validation
+    const cleanPhone = phone.replace(/[\s\-]/g, '');
+    if (!cleanPhone.match(/^\+?[0-9]{10,15}$/)) {
+        showContactAlert('Please enter a valid phone number with 10 to 15 digits (including country code).', false);
+        return;
+    }
+
+    // Duplicate check client-side
+    const exists = authorityContactsList.some(c => c.phone_number.replace(/[\s\-]/g, '') === cleanPhone);
+    if (exists) {
+        showContactAlert('A contact with this phone number is already registered.', false);
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    try {
+        const resp = await fetch('/api/contacts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                post_designation: post,
+                phone: cleanPhone,
+            })
+        });
+        const res = await resp.json();
+        if (res.success) {
+            showContactAlert('Authority contact registered successfully.', true);
+            setTimeout(() => {
+                closeAddContactModal();
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Authority Contact';
+                loadAuthorityContacts();
+            }, 600);
+        } else {
+            showContactAlert(res.message || 'Error registering contact.', false);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Authority Contact';
+        }
+    } catch (err) {
+        showContactAlert('Network error: ' + err.message, false);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Authority Contact';
+    }
+}
+
+async function deleteAuthorityContact(contactId, name) {
+    if (!confirm(`Are you sure you want to remove ${name} from receiving detection notifications?`)) {
+        return;
+    }
+    try {
+        const resp = await fetch(`/api/contacts/${contactId}`, { method: 'DELETE' });
+        const res = await resp.json();
+        if (res.success) {
+            loadAuthorityContacts();
+        } else {
+            alert('Error deleting contact: ' + (res.message || 'Server error'));
+        }
+    } catch (err) {
+        alert('Network error deleting contact: ' + err.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadAuthorityContacts();
+});
+</script>
+{% endblock %}

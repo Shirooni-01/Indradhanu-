@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+
+{% block title %}Settings | Project Indradhanu{% endblock %}
+
+{% block content %}
+<div class="page-container" style="max-width: 650px; margin: 0 auto; padding-top: 24px;">
+    <div class="page-header-row" style="margin-bottom: 24px;">
+        <div class="page-title-block">
+            <div class="title-with-pill">
+                <span class="sub-badge"><i class="fa-solid fa-lock"></i> ACCOUNT CREDENTIALS</span>
+                <h2><i class="fa-solid fa-gear"></i> Dashboard Settings</h2>
+            </div>
+            <p class="page-subtitle">Manage Range Forest Officer login identifier and secure access password.</p>
+        </div>
+    </div>
+
+    <div class="full-table-card" style="padding: 28px; background: #101a16; border: 1px solid #1e3328; border-radius: 8px;">
+        <h4 style="margin-top: 0; margin-bottom: 20px; font-size: 16px; color: #69C18A; border-bottom: 1px solid #1e3328; padding-bottom: 12px;">
+            <i class="fa-solid fa-user-shield"></i> Change Dashboard Credentials
+        </h4>
+
+        <div id="settings-alert-box" style="display: none; padding: 12px 16px; border-radius: 4px; margin-bottom: 20px; font-size: 13px;"></div>
+
+        <form id="form-settings-credentials" onsubmit="handleCredentialUpdate(event)">
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">
+                    Current Login ID
+                </label>
+                <input type="text" id="current-username" value="{{ session.get('username', 'admin') }}" readonly style="width: 100%; padding: 10px 12px; background: #080f0c; border: 1px solid #1a2e24; color: #94a3b8; border-radius: 4px; box-sizing: border-box; font-family: monospace;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">
+                    New Login ID (Optional)
+                </label>
+                <input type="text" id="new-username" placeholder="Leave blank to keep current ID" style="width: 100%; padding: 10px 12px; background: #0b1310; border: 1px solid #234032; color: #fff; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">
+                    Current Password <span style="color: #ef4444;">*</span>
+                </label>
+                <input type="password" id="current-password" required placeholder="Enter current password to authorize changes" style="width: 100%; padding: 10px 12px; background: #0b1310; border: 1px solid #234032; color: #fff; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">
+                    New Password
+                </label>
+                <input type="password" id="new-password" placeholder="Leave blank if not changing password" style="width: 100%; padding: 10px 12px; background: #0b1310; border: 1px solid #234032; color: #fff; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label style="display: block; font-size: 12px; font-weight: 600; color: #cbd5e1; margin-bottom: 6px; text-transform: uppercase;">
+                    Confirm New Password
+                </label>
+                <input type="password" id="confirm-password" placeholder="Re-enter new password" style="width: 100%; padding: 10px 12px; background: #0b1310; border: 1px solid #234032; color: #fff; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <button type="submit" id="btn-save-credentials" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; font-size: 14px;">
+                <i class="fa-solid fa-check"></i> Save Credential Changes
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+async function handleCredentialUpdate(e) {
+    e.preventDefault();
+    const alertBox = document.getElementById('settings-alert-box');
+    const newUsername = document.getElementById('new-username').value.trim();
+    const currentPassword = document.getElementById('current-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const btn = document.getElementById('btn-save-credentials');
+
+    if (newPassword && newPassword !== confirmPassword) {
+        showAlert('New password and confirmation do not match.', 'error');
+        return;
+    }
+
+    if (!newUsername && !newPassword) {
+        showAlert('Please provide a new Login ID or a new Password to update.', 'error');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    try {
+        const resp = await fetch('/api/settings/credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                new_username: newUsername,
+                current_password: currentPassword,
+                new_password: newPassword,
+            })
+        });
+        const data = await resp.json();
+        if (data.success) {
+            showAlert('Credentials updated successfully. Please log in again.', 'success');
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 1200);
+        } else {
+            showAlert(data.error || 'Failed to update credentials.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Credential Changes';
+        }
+    } catch (err) {
+        showAlert('Network error: ' + err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> Save Credential Changes';
+    }
+}
+
+function showAlert(msg, type) {
+    const alertBox = document.getElementById('settings-alert-box');
+    alertBox.style.display = 'block';
+    if (type === 'success') {
+        alertBox.style.background = 'rgba(16, 185, 129, 0.15)';
+        alertBox.style.border = '1px solid rgba(16, 185, 129, 0.4)';
+        alertBox.style.color = '#6ee7b7';
+    } else {
+        alertBox.style.background = 'rgba(239, 68, 68, 0.15)';
+        alertBox.style.border = '1px solid rgba(239, 68, 68, 0.4)';
+        alertBox.style.color = '#fca5a5';
+    }
+    alertBox.innerHTML = (type === 'success' ? '<i class="fa-solid fa-circle-check"></i> ' : '<i class="fa-solid fa-triangle-exclamation"></i> ') + msg;
+}
+</script>
+{% endblock %}
